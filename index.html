@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Weekly Planner</title>
+  <meta name="description" content="An editable, printable weekly schedule. 可编辑、可打印的每周课表。">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style id="pageStyle">@page { size: letter landscape; margin: 0; }</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <input id="title" class="title-input" maxlength="40" autocomplete="off" spellcheck="false" data-i18n-aria="titleAria">
+    <div class="weekrow">
+      <button class="icon-btn" id="prevWeek" data-i18n-aria="prevWeek">‹</button>
+      <button class="pill" id="thisWeek" data-i18n="thisWeek"></button>
+      <button class="icon-btn" id="nextWeek" data-i18n-aria="nextWeek">›</button>
+      <h2 class="range" id="range"></h2>
+    </div>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tabEdit" aria-selected="true" data-i18n="tabEdit"></button>
+    <button role="tab" id="tabPrint" aria-selected="false" data-i18n="tabPrint"></button>
+  </div>
+
+  <div class="tools">
+    <button class="btn primary" id="newBtn"><span aria-hidden="true">＋</span><span data-i18n="newEvent"></span></button>
+    <div class="menu-wrap" id="menuWrap">
+      <button class="icon-btn lg" id="moreBtn" aria-haspopup="true" aria-expanded="false" data-i18n-aria="more">⋯</button>
+      <div class="menu" id="menu" hidden>
+        <button data-act="undo"><span data-i18n="undo"></span><kbd id="undoKbd"></kbd></button>
+        <hr>
+        <button data-act="export"><span data-i18n="exportData"></span></button>
+        <button data-act="import"><span data-i18n="importData"></span></button>
+        <button data-act="reset"><span data-i18n="reset"></span></button>
+        <hr>
+        <button data-act="theme"><span data-i18n="theme"></span><span class="menu-val" id="themeVal"></span></button>
+        <button data-act="lang"><span data-i18n="langSwitch"></span></button>
+        <button data-act="keys"><span data-i18n="shortcuts"></span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section id="editView" class="view">
+    <div class="board">
+      <div class="grid-card">
+        <div class="grid-scroll"><div id="grid" class="grid"></div></div>
+        <div class="grid-foot">
+          <div class="legend" id="legend"></div>
+          <p class="hint" data-i18n="gridHint"></p>
+        </div>
+      </div>
+      <aside class="side" id="side"></aside>
+    </div>
+    <div class="skipped" id="skipped" hidden></div>
+  </section>
+
+  <section id="printView" class="view" hidden>
+    <div class="print-layout">
+      <form class="print-settings" id="printForm" autocomplete="off"></form>
+      <div class="preview-area" id="previewArea">
+        <div class="page-frame" id="pageFrame"><div id="printRoot"></div></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<dialog id="dlg" aria-labelledby="dlgTitle">
+  <form id="dlgForm" novalidate>
+    <div class="dlg-head">
+      <h2 id="dlgTitle"></h2>
+      <span class="badge" id="dlgBadge" hidden></span>
+    </div>
+
+    <label class="fld">
+      <span data-i18n="fTitle"></span>
+      <input class="input" id="fTitle" maxlength="60" autocomplete="off" data-i18n-ph="fTitlePh">
+    </label>
+
+    <div class="fld"><span data-i18n="fCat"></span><div class="chips" id="fCat"></div></div>
+    <div class="fld"><span data-i18n="fDays"></span><div class="chips" id="fDays"></div></div>
+
+    <div class="fld">
+      <span data-i18n="fTime"></span>
+      <div class="row">
+        <input class="input time" type="time" id="fStart" step="300">
+        <span data-i18n="to"></span>
+        <input class="input time" type="time" id="fEnd" step="300">
+      </div>
+    </div>
+
+    <label class="fld">
+      <span data-i18n="fPlace"></span>
+      <input class="input" id="fPlace" maxlength="60" autocomplete="off" data-i18n-ph="fPlacePh">
+    </label>
+
+    <div class="fld" id="repeatFld"><span data-i18n="fRepeat"></span><div class="chips" id="fRepeat"></div></div>
+
+    <p class="err" id="fErr" role="alert"></p>
+
+    <div class="dlg-foot">
+      <div>
+        <button type="button" class="btn ghost danger" id="fDel"></button>
+        <button type="button" class="btn ghost" id="fSkip" data-i18n="skipThisWeek"></button>
+      </div>
+      <div>
+        <button type="button" class="btn" id="fCancel" data-i18n="cancel"></button>
+        <button type="button" class="btn" id="fSaveWeek" data-i18n="saveThisWeek"></button>
+        <button type="submit" class="btn primary" id="fSave"></button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<input type="file" id="importFile" accept="application/json,.json" hidden>
+
+<script src="js/default-schedule.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
