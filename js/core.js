@@ -1,0 +1,480 @@
+/*
+ * Core: shared helpers, settings, i18n, data stores with undo,
+ * page router, toast, form dialog and backup.
+ * Every other module talks to the app through window.LO.
+ */
+(() => {
+  'use strict';
+  const LO = (window.LO = {});
+
+  /* ---------------- small helpers ---------------- */
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  LO.$ = $;
+  LO.$$ = $$;
+  LO.uid = () => Math.random().toString(36).slice(2, 10);
+  LO.clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  LO.seq = (n) => Array.from({ length: n }, (_, i) => i);
+  LO.esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  LO.round1 = (n) => Math.round(n * 10) / 10;
+  LO.isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+
+  /* ---------------- dates (local time, keys are YYYY-MM-DD) ---------------- */
+  const pad = (n) => String(n).padStart(2, '0');
+  LO.keyOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  LO.parseKey = (k) => { const [y, m, d] = String(k).split('-').map(Number); return new Date(y, (m || 1) - 1, d || 1); };
+  LO.addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  LO.todayKey = () => LO.keyOf(new Date());
+  LO.wd = (d) => (d.getDay() + 6) % 7; // Monday = 0
+  LO.mondayOf = (d) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - LO.wd(x)); return x; };
+  LO.dayDiff = (a, b) => {
+    const [y1, m1, d1] = a.split('-').map(Number);
+    const [y2, m2, d2] = b.split('-').map(Number);
+    return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 864e5);
+  };
+  LO.shortDate = (k) => { const d = LO.parseKey(k); return `${d.getMonth() + 1}/${d.getDate()}`; };
+  LO.toMin = (s) => { const [h, m] = String(s).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+  LO.fmtMin = (m) => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
+
+  /* ---------------- settings ---------------- */
+  const SETTINGS_KEY = 'planner:settings';
+  const readJSON = (key) => { try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; } catch (_) { return null; } };
+  LO.readJSON = readJSON;
+  let settings = readJSON(SETTINGS_KEY);
+  if (!settings || !['zh', 'en'].includes(settings.lang)) {
+    const legacy = readJSON('weekly-planner:v2') || {};
+    settings = {
+      lang: ['zh', 'en'].includes(legacy.lang) ? legacy.lang : ((navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en'),
+      theme: ['auto', 'light', 'dark'].includes(legacy.theme) ? legacy.theme : 'auto'
+    };
+  }
+  const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (_) { /* ignore */ } };
+  saveSettings();
+  LO.lang = () => settings.lang;
+  LO.settings = () => settings;
+  function applyTheme() {
+    if (settings.theme === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', settings.theme);
+  }
+  applyTheme();
+
+  /* ---------------- i18n ---------------- */
+  const DICT = { zh: {}, en: {} };
+  LO.strings = (ns, obj) => { DICT.zh[ns] = obj.zh; DICT.en[ns] = obj.en; };
+  LO.t = (path) => {
+    const v = path.split('.').reduce((o, k) => (o == null ? o : o[k]), DICT[settings.lang]);
+    return v == null ? path : v;
+  };
+  LO.ns = (ns) => (p) => LO.t(`${ns}.${p}`);
+  LO.applyI18n = () => {
+    document.documentElement.lang = settings.lang === 'zh' ? 'zh-CN' : 'en';
+    $$('[data-i18n]').forEach((el) => { el.textContent = LO.t(el.dataset.i18n); });
+    $$('[data-i18n-ph]').forEach((el) => { el.placeholder = LO.t(el.dataset.i18nPh); });
+    $$('[data-i18n-aria]').forEach((el) => {
+      const v = LO.t(el.dataset.i18nAria);
+      el.setAttribute('aria-label', v);
+      el.title = v;
+    });
+    const k = $('#undoKbd');
+    if (k) k.textContent = LO.isMac ? '⌘Z' : 'Ctrl+Z';
+    const tv = $('#themeVal');
+    if (tv) tv.textContent = LO.t('app.themeNames')[settings.theme];
+  };
+
+  LO.strings('common', {
+    zh: {
+      save: '保存', cancel: '取消', delete: '删除', confirmDelete: '确认删除', add: '添加', edit: '编辑',
+      undo: '撤销', undone: '已撤销', nothingToUndo: '没有可以撤销的操作', saveFailed: '浏览器存储已满，修改没有保存',
+      added: '已添加', saved: '已保存', deleted: '已删除', done: '完成',
+      today: '今天', tomorrow: '明天', yesterday: '昨天', overdue: '已逾期',
+      days: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+      daysShort: ['一', '二', '三', '四', '五', '六', '日'],
+      weekdaysLong: ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'],
+      min: '分钟', hours: '小时', cups: '杯', times: '次',
+      cats: { study: '学习', work: '工作', club: '社团', health: '健康', life: '生活', other: '其他' },
+      title: '名称', notes: '备注', category: '分类', notesPh: '可不填'
+    },
+    en: {
+      save: 'Save', cancel: 'Cancel', delete: 'Delete', confirmDelete: 'Confirm delete', add: 'Add', edit: 'Edit',
+      undo: 'Undo', undone: 'Undone', nothingToUndo: 'Nothing to undo', saveFailed: 'Browser storage is full; changes were not saved',
+      added: 'Added', saved: 'Saved', deleted: 'Deleted', done: 'Done',
+      today: 'Today', tomorrow: 'Tomorrow', yesterday: 'Yesterday', overdue: 'Overdue',
+      days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+      daysShort: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+      weekdaysLong: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+      min: 'min', hours: 'h', cups: 'cups', times: 'times',
+      cats: { study: 'Study', work: 'Work', club: 'Club', health: 'Health', life: 'Life', other: 'Other' },
+      title: 'Name', notes: 'Notes', category: 'Category', notesPh: 'Optional'
+    }
+  });
+  LO.strings('app', {
+    zh: {
+      brand: '我的计划本',
+      nav: { today: '今天', tasks: '任务', schedule: '课表', health: '健康', goals: '目标', growth: '成长' },
+      sub: { plan: '年度目标', wishes: '心愿清单', learn: '学习清单', records: '成长记录' },
+      more: '更多选项', undo: '撤销', exportData: '导出全部数据', importData: '导入备份', resetSchedule: '恢复初始课表',
+      theme: '外观', themeNames: { auto: '跟随系统', light: '浅色', dark: '深色' }, langSwitch: 'English', shortcuts: '快捷键',
+      shortcutsText: '1–6 切换页面　⌘/Ctrl+Z 撤销　课表页：N 新建　← → 切换周　T 本周　P 打印',
+      imported: '备份已导入', importFailed: '这个文件不是有效的备份'
+    },
+    en: {
+      brand: 'My Planner',
+      nav: { today: 'Today', tasks: 'Tasks', schedule: 'Schedule', health: 'Health', goals: 'Goals', growth: 'Growth' },
+      sub: { plan: 'Yearly goals', wishes: 'Wishes', learn: 'Learning', records: 'Growth log' },
+      more: 'More options', undo: 'Undo', exportData: 'Export all data', importData: 'Import backup', resetSchedule: 'Restore default schedule',
+      theme: 'Appearance', themeNames: { auto: 'System', light: 'Light', dark: 'Dark' }, langSwitch: '中文', shortcuts: 'Keyboard shortcuts',
+      shortcutsText: '1–6 switch pages   ⌘/Ctrl+Z undo   Schedule: N new   ← → week   T this week   P print',
+      imported: 'Backup imported', importFailed: "This file isn't a valid backup"
+    }
+  });
+  const tc = LO.ns('common');
+
+  /* ---------------- date labels ---------------- */
+  LO.dueInfo = (key) => {
+    if (!key) return null;
+    const diff = LO.dayDiff(LO.todayKey(), key);
+    if (diff < 0) return { text: `${tc('overdue')} ${LO.shortDate(key)}`, cls: 'is-overdue', diff };
+    if (diff === 0) return { text: tc('today'), cls: 'is-today', diff };
+    if (diff === 1) return { text: tc('tomorrow'), cls: 'is-soon', diff };
+    const d = LO.parseKey(key);
+    return { text: `${LO.shortDate(key)} ${tc('days')[LO.wd(d)]}`, cls: diff <= 3 ? 'is-soon' : '', diff };
+  };
+
+  /* ---------------- stores with shared undo ---------------- */
+  const stores = {};
+  LO.frozen = false;
+  LO.createStore = (name, key, defaults, normalize) => {
+    let state;
+    try { state = normalize(readJSON(key) || defaults()); } catch (_) { state = normalize(defaults()); }
+    let timer = null;
+    const store = {
+      name,
+      key,
+      get s() { return state; },
+      replace(next) { state = normalize(next); store.save(); },
+      save() { clearTimeout(timer); timer = setTimeout(store.saveNow, 250); },
+      saveNow() {
+        clearTimeout(timer);
+        if (LO.frozen) return;
+        try { localStorage.setItem(key, JSON.stringify(state)); } catch (_) { LO.toast(tc('saveFailed')); }
+      },
+      snapshot: () => JSON.stringify(state),
+      restore(json) { state = JSON.parse(json); store.save(); }
+    };
+    stores[name] = store;
+    store.saveNow();
+    return store;
+  };
+  LO.store = (name) => stores[name];
+  window.addEventListener('pagehide', () => Object.values(stores).forEach((s) => s.saveNow()));
+
+  const undoStack = [];
+  LO.mutate = (store, fn, msg, extraActions) => {
+    undoStack.push({ store, json: store.snapshot() });
+    if (undoStack.length > 100) undoStack.shift();
+    fn(store.s);
+    store.save();
+    LO.refresh();
+    if (msg) LO.toast(msg, [{ label: tc('undo'), run: LO.undo }].concat(extraActions || []));
+  };
+  LO.undo = () => {
+    const top = undoStack.pop();
+    if (!top) { LO.toast(tc('nothingToUndo')); return; }
+    top.store.restore(top.json);
+    LO.refresh();
+    LO.toast(tc('undone'));
+  };
+
+  /* ---------------- router ---------------- */
+  // Top-level pages in the nav. "goals" and "growth" each hold two sub-pages.
+  const NAV = ['today', 'tasks', 'schedule', 'health', 'goals', 'growth'];
+  const GROUPS = { goals: ['plan', 'wishes'], growth: ['learn', 'records'] };
+  const PARENT = { plan: 'goals', wishes: 'goals', learn: 'growth', records: 'growth' };
+  const lastSub = { goals: 'plan', growth: 'learn' };
+  const views = {};
+  let current = null;
+  LO.view = (name, def) => { views[name] = def; };
+  LO.route = () => current;
+  LO.go = (name) => { window.location.hash = PARENT[name] ? `#/${PARENT[name]}/${name}` : `#/${name}`; };
+  LO.refresh = () => {
+    LO.applyI18n();
+    if (current && views[current]) views[current].render();
+  };
+  function parseHash() {
+    const h = window.location.hash.replace(/^#\/?/, '');
+    if (h === 'print') return { top: 'schedule', leaf: 'schedule', print: true };
+    const [a, b] = h.split('/');
+    if (PARENT[a]) return { top: PARENT[a], leaf: a };
+    if (GROUPS[a]) return { top: a, leaf: GROUPS[a].includes(b) ? b : lastSub[a] };
+    const top = NAV.includes(a) ? a : 'today';
+    return { top, leaf: top, print: h === 'schedule/print' };
+  }
+  function renderSubnav(top, leaf) {
+    const el = $('#subnav');
+    if (!el) return;
+    const subs = GROUPS[top];
+    el.hidden = !subs;
+    if (!subs) { el.innerHTML = ''; return; }
+    el.innerHTML = subs.map((s) => `<a href="#/${top}/${s}"${s === leaf ? ' aria-current="page"' : ''}>${LO.esc(LO.t('app.sub.' + s))}</a>`).join('');
+  }
+  function show() {
+    const { top, leaf, print } = parseHash();
+    const changed = leaf !== current;
+    current = leaf;
+    if (GROUPS[top]) lastSub[top] = leaf;
+    document.body.dataset.route = leaf;
+    $$('.app-view').forEach((el) => { el.hidden = el.id !== `view-${leaf}`; });
+    $$('[data-nav]').forEach((a) => {
+      if (a.dataset.nav === top) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
+    });
+    renderSubnav(top, leaf);
+    closeMenu();
+    LO.applyI18n();
+    document.title = `${LO.t(GROUPS[top] ? 'app.sub.' + leaf : 'app.nav.' + top)} | ${LO.t('app.brand')}`;
+    const v = views[leaf];
+    if (v) {
+      if (print && v.setMode) v.setMode('print');
+      else v.render();
+      if (v.onShow) v.onShow();
+    }
+    if (changed) window.scrollTo(0, 0);
+  }
+  window.addEventListener('hashchange', show);
+
+  /* ---------------- toast ---------------- */
+  let toastTimer = null;
+  LO.toast = (msg, actions, ms) => {
+    const el = $('#toast');
+    if (!el) return;
+    el.innerHTML = '';
+    const span = document.createElement('span');
+    span.textContent = msg;
+    el.appendChild(span);
+    (actions || []).forEach((a) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = a.label;
+      b.addEventListener('click', () => { el.classList.remove('show'); a.run(); });
+      el.appendChild(b);
+    });
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), ms || ((actions || []).length ? 6000 : 2400));
+  };
+
+  /* ---------------- icons ---------------- */
+  LO.icon = {
+    check: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    star: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6l1.95 3.95 4.35.63-3.15 3.07.74 4.33L8 11.53l-3.89 2.05.74-4.33L1.7 6.18l4.35-.63z" fill="currentColor"/></svg>',
+    plus: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    minus: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    x: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+  };
+
+  /* ---------------- small UI builders ---------------- */
+  LO.chips = (name, items, type, checked) => items.map(([v, label, cls]) =>
+    `<label class="chip${cls ? ' ' + cls : ''}"><input type="${type}" name="${name}" value="${LO.esc(v)}"${checked.map(String).includes(String(v)) ? ' checked' : ''}><span>${label}</span></label>`
+  ).join('');
+  LO.checkedVals = (root, name) => $$(`input[name="${name}"]:checked`, root).map((i) => i.value);
+  LO.checkedVal = (root, name) => { const el = $(`input[name="${name}"]:checked`, root); return el ? el.value : null; };
+
+  LO.ring = (pct, size, label) => {
+    const r = 16;
+    const c = 2 * Math.PI * r;
+    const p = LO.clamp(pct, 0, 1);
+    return `<span class="ring" style="width:${size}px;height:${size}px"><svg viewBox="0 0 40 40" aria-hidden="true">`
+      + `<circle cx="20" cy="20" r="${r}" class="ring-bg"/>`
+      + `<circle cx="20" cy="20" r="${r}" class="ring-fg" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - p)}"/></svg>`
+      + `${label != null ? `<b>${label}</b>` : ''}</span>`;
+  };
+
+  LO.bars = (values, opts) => {
+    // values: [{v, label, cls}] -> simple column chart
+    const o = Object.assign({ height: 90, goal: null, unit: '' }, opts || {});
+    const max = Math.max(o.goal || 0, ...values.map((x) => x.v), 1);
+    let h = `<div class="bars" style="height:${o.height}px">`;
+    if (o.goal) h += `<i class="bars-goal" style="bottom:${o.goal / max * 100}%"></i>`;
+    values.forEach((x) => {
+      h += `<span class="bar-col${x.cls ? ' ' + x.cls : ''}" title="${LO.esc(x.title || '')}"><span class="bar-fill" style="height:${x.v / max * 100}%"></span></span>`;
+    });
+    h += '</div><div class="bars-axis">';
+    values.forEach((x) => { h += `<span>${x.label || ''}</span>`; });
+    return `${h}</div>`;
+  };
+
+  /* ---------------- generic form dialog ---------------- */
+  let fctx = null;
+  LO.openForm = (opts) => {
+    const dlg = $('#formDlg');
+    fctx = opts;
+    $('#formTitle').textContent = opts.title;
+    const badge = $('#formBadge');
+    badge.hidden = !opts.badge;
+    badge.textContent = opts.badge || '';
+    $('#formBody').innerHTML = opts.body;
+    $('#formErr').textContent = '';
+    const del = $('#formDel');
+    del.hidden = !opts.onDelete;
+    del.textContent = tc('delete');
+    del.dataset.armed = '';
+    $('#formSave').textContent = opts.saveLabel || tc('save');
+    if (!dlg.open) dlg.showModal();
+    if (opts.onOpen) opts.onOpen(dlg);
+    setTimeout(() => {
+      const f = $('[autofocus]', dlg) || $('input:not([type=hidden]),textarea', dlg);
+      if (f) f.focus();
+    }, 0);
+  };
+  LO.closeForm = () => { const d = $('#formDlg'); if (d.open) d.close(); };
+
+  function wireFormDialog() {
+    const dlg = $('#formDlg');
+    $('#formForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!fctx) return;
+      const r = fctx.onSave(dlg);
+      if (typeof r === 'string') $('#formErr').textContent = r;
+      else if (r !== false) dlg.close();
+    });
+    $('#formCancel').addEventListener('click', () => dlg.close());
+    $('#formDel').addEventListener('click', (e) => {
+      const b = e.currentTarget;
+      if (!fctx || !fctx.onDelete) return;
+      if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = fctx.confirmDeleteLabel || tc('confirmDelete'); return; }
+      const fn = fctx.onDelete;
+      dlg.close();
+      fn();
+    });
+    dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+    dlg.addEventListener('close', () => { fctx = null; });
+  }
+
+  /* ---------------- menu, backup, keyboard ---------------- */
+  function closeMenu() {
+    const m = $('#menu');
+    if (m) m.hidden = true;
+    const b = $('#moreBtn');
+    if (b) b.setAttribute('aria-expanded', 'false');
+  }
+
+  function currentUndo() {
+    const v = views[current];
+    return v && v.undo ? v.undo : LO.undo;
+  }
+
+  function exportAll() {
+    Object.values(stores).forEach((s) => s.saveNow());
+    if (LO.planner && LO.planner.flush) LO.planner.flush();
+    const data = {
+      app: 'weekly-planner', v: 3, exportedAt: new Date().toISOString(), settings,
+      planner: readJSON('weekly-planner:v2'),
+      stores: Object.fromEntries(Object.values(stores).map((s) => [s.name, s.s]))
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `planner-backup-${LO.todayKey()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+  }
+
+  async function importFile(file) {
+    try {
+      const obj = JSON.parse(await file.text());
+      if (obj && obj.app === 'weekly-planner' && obj.v === 3) {
+        LO.frozen = true;
+        if (obj.planner) localStorage.setItem('weekly-planner:v2', JSON.stringify(obj.planner));
+        Object.entries(obj.stores || {}).forEach(([name, data]) => {
+          if (stores[name]) localStorage.setItem(stores[name].key, JSON.stringify(data));
+        });
+        if (obj.settings) localStorage.setItem(SETTINGS_KEY, JSON.stringify(obj.settings));
+      } else if (obj && obj.v === 2 && Array.isArray(obj.recurring)) {
+        LO.frozen = true;
+        localStorage.setItem('weekly-planner:v2', JSON.stringify(obj));
+      } else {
+        throw new Error('bad');
+      }
+      sessionStorage.setItem('planner:imported', '1');
+      window.location.reload();
+    } catch (_) {
+      LO.frozen = false;
+      LO.toast(LO.t('app.importFailed'));
+    }
+  }
+
+  function wireShell() {
+    const menu = $('#menu');
+    const moreBtn = $('#moreBtn');
+    moreBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.hidden = !menu.hidden;
+      moreBtn.setAttribute('aria-expanded', String(!menu.hidden));
+    });
+    document.addEventListener('click', (e) => { if (!menu.hidden && !$('#menuWrap').contains(e.target)) closeMenu(); });
+    menu.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-act]');
+      if (!b) return;
+      const act = b.dataset.act;
+      if (act !== 'theme') closeMenu();
+      if (act === 'undo') currentUndo()();
+      else if (act === 'export') exportAll();
+      else if (act === 'import') $('#importFile').click();
+      else if (act === 'resetSchedule' && LO.planner) LO.planner.reset();
+      else if (act === 'lang') {
+        settings.lang = settings.lang === 'zh' ? 'en' : 'zh';
+        saveSettings();
+        LO.refresh();
+      } else if (act === 'theme') {
+        const order = ['auto', 'light', 'dark'];
+        settings.theme = order[(order.indexOf(settings.theme) + 1) % order.length];
+        saveSettings();
+        applyTheme();
+        LO.applyI18n();
+      } else if (act === 'keys') {
+        LO.toast(LO.t('app.shortcutsText'), [], 7000);
+      }
+    });
+    $('#importFile').addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (f) importFile(f);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      const tag = (e.target.tagName || '').toLowerCase();
+      const typing = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
+      const anyDialog = $$('dialog').some((d) => d.open);
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z' && !typing && !anyDialog) {
+        e.preventDefault();
+        currentUndo()();
+        return;
+      }
+      if (typing || anyDialog || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === 'Escape') { closeMenu(); return; }
+      if (/^[1-6]$/.test(e.key)) { window.location.hash = `#/${NAV[+e.key - 1]}`; return; }
+      const v = views[current];
+      if (v && v.keys) v.keys(e);
+    });
+  }
+
+  /* ---------------- day rollover ---------------- */
+  let lastDay = LO.todayKey();
+  setInterval(() => {
+    const k = LO.todayKey();
+    if (k !== lastDay) { lastDay = k; LO.refresh(); }
+  }, 30 * 1000);
+
+  /* ---------------- start ---------------- */
+  document.addEventListener('DOMContentLoaded', () => {
+    wireShell();
+    wireFormDialog();
+    show();
+    if (sessionStorage.getItem('planner:imported')) {
+      sessionStorage.removeItem('planner:imported');
+      LO.toast(LO.t('app.imported'));
+    }
+  });
+})();

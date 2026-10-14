@@ -1,10 +1,10 @@
 /*
- * Weekly Planner
- * An editable, printable weekly schedule. Plain JavaScript, no build step.
- * All data is stored in this browser's localStorage.
+ * Schedule page: the editable, printable weekly timetable.
+ * Data is stored in localStorage under "weekly-planner:v2".
  */
 (() => {
   'use strict';
+  const LO = window.LO;
 
   /* =========================================================
      i18n
@@ -21,7 +21,7 @@
       langSwitch: 'English', theme: '外观', themeNames: { auto: '跟随系统', light: '浅色', dark: '深色' },
       shortcuts: '快捷键',
       hoursTitle: '本周时间', total: '合计', hoursEmpty: '这周还没有安排。', hoursUnit: ' 小时',
-      todoTitle: '待办', todoPh: '添加待办，回车保存', add: '添加',
+      todoTitle: '本周待办', todoPh: '添加待办，回车保存', todoEmpty: '这周没有到期的待办。', openTasks: '全部待办', add: '添加',
       notesTitle: '备注', notesPh: '这周要记住的事…',
       viewRange: '显示时段', to: '到',
       skipped: '本周跳过了：', restore: '恢复',
@@ -60,7 +60,7 @@
       langSwitch: '中文', theme: 'Appearance', themeNames: { auto: 'System', light: 'Light', dark: 'Dark' },
       shortcuts: 'Keyboard shortcuts',
       hoursTitle: 'Hours this week', total: 'Total', hoursEmpty: 'Nothing scheduled this week.', hoursUnit: ' h',
-      todoTitle: 'To-do', todoPh: 'Add a to-do, press Enter', add: 'Add',
+      todoTitle: 'To-dos this week', todoPh: 'Add a to-do, press Enter', todoEmpty: 'Nothing due this week.', openTasks: 'All to-dos', add: 'Add',
       notesTitle: 'Notes', notesPh: 'Anything to remember this week…',
       viewRange: 'Visible hours', to: 'to',
       skipped: 'Skipped this week:', restore: 'Restore',
@@ -195,8 +195,9 @@
 
   function persistNow() {
     clearTimeout(saveTimer);
+    if (LO.frozen) return;
     try { localStorage.setItem(STORE, JSON.stringify(state)); }
-    catch (_) { toast(t('saveFailed')); }
+    catch (_) { LO.toast(t('saveFailed')); }
   }
   function persist() { clearTimeout(saveTimer); saveTimer = setTimeout(persistNow, 250); }
   window.addEventListener('pagehide', persistNow);
@@ -209,7 +210,7 @@
     fn();
     persist();
     renderAll();
-    if (msg) toast(msg, [{ label: t('undo'), run: undo }].concat(extraActions || []));
+    if (msg) LO.toast(msg, [{ label: t('undo'), run: undo }].concat(extraActions || []));
   }
   function restoreSnapshot(json) {
     // undo affects schedule data only; keep the current UI preferences
@@ -218,11 +219,11 @@
   }
   function undo() {
     const prev = undoStack.pop();
-    if (!prev) { toast(t('nothingToUndo')); return; }
+    if (!prev) { LO.toast(t('nothingToUndo')); return; }
     restoreSnapshot(prev);
     persist();
     renderAll();
-    toast(t('undone'));
+    LO.toast(t('undone'));
   }
   function rollbackSilently() {
     const prev = undoStack.pop();
@@ -259,7 +260,7 @@
   /* =========================================================
      i18n application
      ========================================================= */
-  const L = () => I18N[state.lang] || I18N.zh;
+  const L = () => I18N[LO.lang()] || I18N.zh;
   function t(path) {
     const v = path.split('.').reduce((o, k) => (o == null ? o : o[k]), L());
     return v == null ? path : v;
@@ -269,7 +270,7 @@
 
   function rangeLabel(mon, withYear) {
     const end = addDays(mon, 6);
-    if (state.lang === 'zh') {
+    if (LO.lang() === 'zh') {
       const crossYear = mon.getFullYear() !== end.getFullYear();
       const a = `${withYear || crossYear ? mon.getFullYear() + '年' : ''}${mon.getMonth() + 1}月${mon.getDate()}日`;
       const b = crossYear ? `${end.getFullYear()}年${end.getMonth() + 1}月${end.getDate()}日`
@@ -280,23 +281,6 @@
     const a = `${mo(mon)} ${mon.getDate()}`;
     const b = mon.getMonth() === end.getMonth() ? `${end.getDate()}` : `${mo(end)} ${end.getDate()}`;
     return `${a} – ${b}${withYear || mon.getFullYear() !== new Date().getFullYear() ? `, ${end.getFullYear()}` : ''}`;
-  }
-
-  function applyI18n() {
-    document.documentElement.lang = state.lang === 'zh' ? 'zh-CN' : 'en';
-    $$('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
-    $$('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
-    $$('[data-i18n-aria]').forEach((el) => {
-      el.setAttribute('aria-label', t(el.dataset.i18nAria));
-      el.title = t(el.dataset.i18nAria);
-    });
-    $('#undoKbd').textContent = isMac ? '⌘Z' : 'Ctrl+Z';
-    $('#themeVal').textContent = L().themeNames[state.theme];
-  }
-
-  function applyTheme() {
-    if (state.theme === 'auto') document.documentElement.removeAttribute('data-theme');
-    else document.documentElement.setAttribute('data-theme', state.theme);
   }
 
   /* =========================================================
@@ -432,6 +416,19 @@
     return `<option value="${v}"${v === sel ? ' selected' : ''}>${String(v).padStart(2, '0')}:00</option>`;
   }).join('')}</select>`;
 
+  function weekTodos(mon) {
+    if (!LO.tasks) return [];
+    const a = keyOf(mon);
+    const b = keyOf(addDays(mon, 6));
+    const today = keyOf(new Date());
+    const current = a <= today && today <= b;
+    return LO.tasks.sortTodos(LO.tasks.store.s.todos.filter((x) => {
+      if (x.done) return x.doneAt >= a && x.doneAt <= b && x.due && x.due >= a && x.due <= b;
+      if (x.due && x.due >= a && x.due <= b) return true;
+      return current && ((x.due && x.due < a) || x.focus === today);
+    }));
+  }
+
   function renderSide() {
     const key = curKey();
     const w = week(key);
@@ -455,12 +452,10 @@
     }
     h += '</section>';
 
-    h += `<section class="card"><h3>${esc(t('todoTitle'))}</h3><ul class="todos">`;
-    w.todos.forEach((td) => {
-      h += `<li class="${td.done ? 'done' : ''}"><label><input type="checkbox" data-todo="${esc(td.id)}"${td.done ? ' checked' : ''}><span>${esc(td.text)}</span></label>`
-        + `<button type="button" class="x" data-deltodo="${esc(td.id)}" aria-label="${esc(t('del'))}">×</button></li>`;
-    });
-    h += `</ul><form class="todo-add" id="todoForm"><input id="todoInput" maxlength="140" autocomplete="off" placeholder="${esc(t('todoPh'))}">`
+    const wTodos = weekTodos(curMonday());
+    h += `<section class="card"><div class="card-head"><h3>${esc(t('todoTitle'))}</h3><a class="link" href="#/tasks">${esc(t('openTasks'))}</a></div>`
+      + (wTodos.length ? `<ul class="tlist compact">${wTodos.map((x) => LO.tasks.todoRow(x, true)).join('')}</ul>` : `<p class="hint">${esc(t('todoEmpty'))}</p>`)
+      + `<form class="todo-add" id="todoForm"><input id="todoInput" maxlength="140" autocomplete="off" placeholder="${esc(t('todoPh'))}">`
       + `<button class="btn sm" type="submit">${esc(t('add'))}</button></form></section>`;
 
     h += `<section class="card"><h3>${esc(t('notesTitle'))}</h3><textarea id="notes" placeholder="${esc(t('notesPh'))}">${esc(w.notes)}</textarea></section>`;
@@ -527,7 +522,7 @@
     });
     h += '</div>';
     if (P.showSide) {
-      const todos = w.todos.map((td) => `<li class="${td.done ? 'done' : ''}">${esc(td.text)}</li>`).join('');
+      const todos = weekTodos(mon).map((td) => `<li class="${td.done ? 'done' : ''}">${esc(td.title)}</li>`).join('');
       h += '<aside class="p-side">'
         + `<div class="p-sec"><h4>${esc(t('todoTitle'))}</h4><ul class="p-todos">${todos}</ul><div class="ruled"></div></div>`
         + `<div class="p-sec"><h4>${esc(t('notesTitle'))}</h4>${w.notes ? `<p class="p-notes">${esc(w.notes)}</p>` : ''}<div class="ruled"></div></div>`
@@ -624,8 +619,6 @@
      ========================================================= */
   let currentView = 'edit';
   function renderAll() {
-    applyTheme();
-    applyI18n();
     renderHeader();
     renderGrid();
     renderSide();
@@ -640,7 +633,6 @@
     $('#tabEdit').setAttribute('aria-selected', String(v === 'edit'));
     $('#tabPrint').setAttribute('aria-selected', String(v === 'print'));
     $('#newBtn').hidden = v === 'print';
-    try { window.history.replaceState(null, '', v === 'print' ? '#print' : window.location.pathname + window.location.search); } catch (_) { /* file:// in some browsers */ }
     renderAll();
   }
 
@@ -951,19 +943,12 @@
     e.preventDefault();
     const v = $('#todoInput').value.trim();
     if (!v) return;
-    mutate(() => week(curKey(), true).todos.push({ id: uid(), text: v, done: false }));
+    const due = weekOffset === 0 ? keyOf(new Date()) : keyOf(curMonday());
+    LO.tasks.addTodo({ title: v, due });
     const i = $('#todoInput');
     if (i) i.focus();
   });
   sideEl.addEventListener('change', (e) => {
-    const id = e.target.dataset.todo;
-    if (id) {
-      mutate(() => {
-        const td = week(curKey(), true).todos.find((x) => x.id === id);
-        if (td) td.done = e.target.checked;
-      });
-      return;
-    }
     if (e.target.id === 'vStart' || e.target.id === 'vEnd') {
       state.view.start = +$('#vStart').value;
       state.view.end = Math.max(+$('#vEnd').value, state.view.start + 1);
@@ -971,15 +956,6 @@
       renderGrid();
       renderSide();
     }
-  });
-  sideEl.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-deltodo]');
-    if (!b) return;
-    const id = b.dataset.deltodo;
-    mutate(() => {
-      const w = week(curKey(), true);
-      w.todos = w.todos.filter((x) => x.id !== id);
-    }, t('deleted'));
   });
   sideEl.addEventListener('input', (e) => {
     if (e.target.id !== 'notes') return;
@@ -1023,116 +999,62 @@
   });
   $('#title').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
 
-  const menu = $('#menu');
-  const moreBtn = $('#moreBtn');
-  function closeMenu() { menu.hidden = true; moreBtn.setAttribute('aria-expanded', 'false'); }
-  moreBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    menu.hidden = !menu.hidden;
-    moreBtn.setAttribute('aria-expanded', String(!menu.hidden));
-  });
-  document.addEventListener('click', (e) => { if (!menu.hidden && !$('#menuWrap').contains(e.target)) closeMenu(); });
-
-  menu.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-act]');
-    if (!b) return;
-    const act = b.dataset.act;
-    if (act !== 'theme') closeMenu();
-    if (act === 'undo') undo();
-    else if (act === 'export') exportData();
-    else if (act === 'import') $('#importFile').click();
-    else if (act === 'reset') {
-      mutate(() => {
-        const keep = { lang: state.lang, theme: state.theme };
-        state = Object.assign(defaultState(), keep);
-      }, t('resetDone'));
-    } else if (act === 'lang') {
-      state.lang = state.lang === 'zh' ? 'en' : 'zh';
-      persist();
-      renderAll();
-    } else if (act === 'theme') {
-      const order = ['auto', 'light', 'dark'];
-      state.theme = order[(order.indexOf(state.theme) + 1) % order.length];
-      persist();
-      applyTheme();
-      applyI18n();
-    } else if (act === 'keys') {
-      toast(t('shortcutsText'), [], 6000);
-    }
-  });
-
-  function exportData() {
-    persistNow();
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `weekly-planner-backup-${keyOf(new Date())}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
-  }
-
-  $('#importFile').addEventListener('change', async (e) => {
-    const input = e.target;
-    const file = input.files && input.files[0];
-    input.value = '';
-    if (!file) return;
-    try {
-      const s = JSON.parse(await file.text());
-      if (!s || s.v !== 2 || !Array.isArray(s.recurring)) throw new Error('bad');
-      const next = normalize(s);
-      mutate(() => { state = next; }, t('imported'));
-    } catch (_) {
-      toast(t('importFailed'));
-    }
-  });
-
-  document.addEventListener('keydown', (e) => {
-    const tag = (e.target.tagName || '').toLowerCase();
-    const typing = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
-    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z' && !typing && !dlg.open) {
-      e.preventDefault();
-      undo();
-      return;
-    }
-    if (typing || dlg.open || e.metaKey || e.ctrlKey || e.altKey) return;
+  /* =========================================================
+     keyboard (only while this page is open)
+     ========================================================= */
+  function keys(e) {
     const k = e.key.toLowerCase();
-    if (e.key === 'Escape') closeMenu();
-    else if (e.key === 'ArrowLeft') goWeek(-1);
+    if (e.key === 'ArrowLeft') goWeek(-1);
     else if (e.key === 'ArrowRight') goWeek(1);
     else if (k === 't') goWeek(0);
     else if (k === 'n' && currentView === 'edit') { e.preventDefault(); newFromButton(); }
     else if (k === 'p') setView(currentView === 'print' ? 'edit' : 'print');
-  });
-
-  /* =========================================================
-     toast
-     ========================================================= */
-  let toastTimer = null;
-  const toastEl = $('#toast');
-  function hideToast() { toastEl.classList.remove('show'); }
-  function toast(msg, actions, ms) {
-    toastEl.innerHTML = '';
-    const span = document.createElement('span');
-    span.textContent = msg;
-    toastEl.appendChild(span);
-    (actions || []).forEach((a) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.textContent = a.label;
-      b.addEventListener('click', () => { hideToast(); a.run(); });
-      toastEl.appendChild(b);
-    });
-    toastEl.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(hideToast, ms || ((actions || []).length ? 6000 : 2400));
   }
 
   /* =========================================================
-     boot
+     register with the app
      ========================================================= */
+  LO.strings('planner', I18N);
   persistNow(); // pin the seeded ids so "skip this week" survives reloads
-  setView(window.location.hash === '#print' ? 'print' : 'edit');
-  setInterval(() => { if (!drag && currentView === 'edit') renderGrid(); }, 60 * 1000);
+
+  LO.planner = {
+    flush: persistNow,
+    takeLegacyTodos() {
+      const out = [];
+      Object.entries(state.weeks).forEach(([k, w]) => {
+        (w.todos || []).forEach((td) => out.push({ text: td.text, done: td.done, week: k }));
+        w.todos = [];
+      });
+      if (out.length) persistNow();
+      return out;
+    },
+    undo,
+    reset() {
+      LO.go('schedule');
+      mutate(() => {
+        const keep = { lang: state.lang, theme: state.theme, print: state.print, view: state.view, title: state.title };
+        state = Object.assign(defaultState(), keep);
+      }, t('resetDone'));
+    },
+    eventsOn(date) {
+      const di = (date.getDay() + 6) % 7;
+      return weekEvents(keyOf(mondayOf(date))).filter((e) => e.day === di).sort((a, b) => a.start - b.start);
+    },
+    weekHours(date) {
+      const hrs = {};
+      weekEvents(keyOf(mondayOf(date))).forEach((e) => { hrs[e.cat] = (hrs[e.cat] || 0) + (e.end - e.start) / 60; });
+      return hrs;
+    },
+    catLabel: (c) => t('cats.' + c)
+  };
+
+  LO.view('schedule', {
+    render: renderAll,
+    undo,
+    keys,
+    setMode: setView,
+    onShow() { if (currentView === 'print') requestAnimationFrame(fitPreview); }
+  });
+
+  setInterval(() => { if (!drag && currentView === 'edit' && LO.route() === 'schedule') renderGrid(); }, 60 * 1000);
 })();
