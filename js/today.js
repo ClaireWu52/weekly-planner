@@ -20,6 +20,7 @@
       timer: '专注计时', work: '专注', brk: '休息', start: '开始', pause: '暂停', resume: '继续', reset: '重置', skip: '跳过',
       sessions: (n, m) => `今天专注了 ${n} 次，共 ${m} 分钟`, workDone: '专注完成，休息一下吧', breakDone: '休息结束，可以开始下一轮了',
       startBreak: '开始休息', focusing: '专注中', resting: '休息中', length: '时长',
+      news: '今日新闻', moreNews: '全部新闻', noNews: '网站部署到 GitHub 后，这里每天会自动更新头条。',
       month: '本月重点', openPlan: '全年目标', noMonth: '这个月还没有拆解的目标。', streak: (g, n) => `${g}。已经连续活跃 ${n} 天了`
     },
     en: {
@@ -34,6 +35,7 @@
       timer: 'Focus timer', work: 'Focus', brk: 'Break', start: 'Start', pause: 'Pause', resume: 'Resume', reset: 'Reset', skip: 'Skip',
       sessions: (n, m) => `${n} sessions today, ${m} min`, workDone: 'Session done. Take a break.', breakDone: 'Break over. Ready for the next one.',
       startBreak: 'Start break', focusing: 'Focusing', resting: 'On break', length: 'Length',
+      news: "Today's news", moreNews: 'All news', noNews: 'Headlines appear here once the site is deployed on GitHub.',
       month: 'This month', openPlan: 'Yearly goals', noMonth: 'Nothing planned for this month yet.', streak: (g, n) => `${g}. ${n}-day streak`
     }
   });
@@ -244,9 +246,17 @@
       + (m.count ? m.html : `<p class="empty-note">${esc(t('noMonth'))}</p>`) + '</section>';
   }
 
+  function newsCard() {
+    if (!LO.news) return '';
+    const list = LO.news.top(4);
+    return `<section class="card o9"><header class="card-head"><h2>${esc(t('news'))}</h2><a class="link" href="#/today/news">${esc(t('moreNews'))}</a></header>`
+      + (list.length ? `<ul class="news-list compact">${list.map((x) => LO.news.itemHTML(x, true)).join('')}</ul>` : `<p class="empty-note">${esc(t('noNews'))}</p>`)
+      + '</section>';
+  }
+
   function wishesCard() {
     const list = LO.wishes.top(3);
-    return `<section class="card o9"><header class="card-head"><h2>${esc(t('wishes'))}</h2><a class="link" href="#/goals/wishes">${esc(t('openWishes'))}</a></header>`
+    return `<section class="card o10"><header class="card-head"><h2>${esc(t('wishes'))}</h2><a class="link" href="#/goals/wishes">${esc(t('openWishes'))}</a></header>`
       + (list.length ? `<ul class="wish-mini">${list.map(({ w, p }) => `<li class="${LO.wishes.catClass(w.cat)}"><div class="wm-top"><b>${esc(w.title)}</b><span>${p.ready ? esc(LO.t('wishes.ready')) : esc(p.label)}</span></div><div class="progress sm"><span style="width:${p.pct * 100}%"></span></div></li>`).join('')}</ul>`
         : `<p class="empty-note">${esc(t('noWishes'))}</p>`)
       + '</section>';
@@ -260,7 +270,7 @@
     h += '<div class="today-grid">';
     h += `<div class="tcol-a">${scheduleCard()}<section class="card o7"><header class="card-head"><h2>${esc(t('timer'))}</h2></header><div id="focusSlot">${timerCard()}</div></section></div>`;
     h += `<div class="tcol-b">${focusCard()}${dailiesCard()}${upcomingCard()}</div>`;
-    h += `<div class="tcol-c">${healthCard()}${habitsCard()}${monthCard()}${wishesCard()}</div>`;
+    h += `<div class="tcol-c">${healthCard()}${habitsCard()}${monthCard()}${newsCard()}${wishesCard()}</div>`;
     h += '</div>';
     view.innerHTML = h;
     paintTimer();

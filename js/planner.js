@@ -12,7 +12,10 @@
   const I18N = {
     zh: {
       days: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
-      cats: { class: '课程', work: '工作', meeting: '会议 / 社团', other: '其他' },
+      cats: { class: '课程', study: '自习', work: '工作', meeting: '会议 / 社团', health: '运动', life: '生活', other: '其他' },
+      fNote: '备注', fNotePh: '可不填，比如：带水杯、交作业', fRange: '生效日期', fRangeHint: '可不填。比如课只排到期末那天，之后就不再显示。',
+      dup: '复制一份', duped: '已复制，改好后保存', viewWeek: '周', viewDay: '日', legendHint: '点类别可以隐藏或显示', minUnit: '分钟',
+      addedPlan: (n) => `已把 ${n} 个安排加进课表`,
       defaultTitle: '我的一周', titleAria: '标题（点击修改）',
       thisWeek: '本周', prevWeek: '上一周', nextWeek: '下一周',
       tabEdit: '编辑', tabPrint: '打印',
@@ -51,7 +54,10 @@
     },
     en: {
       days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-      cats: { class: 'Class', work: 'Work', meeting: 'Meeting / Club', other: 'Other' },
+      cats: { class: 'Class', study: 'Study', work: 'Work', meeting: 'Meeting / Club', health: 'Exercise', life: 'Life', other: 'Other' },
+      fNote: 'Notes', fNotePh: 'Optional, e.g. bring a water bottle', fRange: 'Active dates', fRangeHint: 'Optional. For example, end a class on the last day of the semester.',
+      dup: 'Duplicate', duped: 'Copied. Adjust it and save.', viewWeek: 'Week', viewDay: 'Day', legendHint: 'Click a category to hide or show it', minUnit: 'min',
+      addedPlan: (n) => `Added ${n} items to the schedule`,
       defaultTitle: 'My Week', titleAria: 'Title (click to edit)',
       thisWeek: 'This week', prevWeek: 'Previous week', nextWeek: 'Next week',
       tabEdit: 'Edit', tabPrint: 'Print',
@@ -93,7 +99,7 @@
   /* =========================================================
      helpers
      ========================================================= */
-  const CATS = ['class', 'work', 'meeting', 'other'];
+  const CATS = ['class', 'study', 'work', 'meeting', 'health', 'life', 'other'];
   const STORE = 'weekly-planner:v2';
   const SNAP = 15;          // minutes
   const HOUR_PX = 52;       // screen hour height
@@ -132,7 +138,7 @@
   function defaultPrint() {
     return {
       paper: 'letter', orient: 'landscape', days: [1, 1, 1, 1, 1, 1, 1],
-      cats: { class: 1, work: 1, meeting: 1, other: 1 },
+      cats: { class: 1, study: 1, work: 1, meeting: 1, health: 1, life: 1, other: 1 },
       start: 9, end: 23, showTime: 1, showPlace: 1, showOnce: 1, showSide: 1, mono: 0
     };
   }
@@ -142,16 +148,23 @@
     return {
       v: 2, title: '', lang, theme: 'auto',
       recurring: seedRecurring(), weeks: {},
-      view: { start: 8, end: 23 }, print: defaultPrint()
+      view: { start: 8, end: 23, hidden: [] }, print: defaultPrint()
     };
   }
 
   const validEvent = (e) => e && typeof e.title === 'string' && Number.isInteger(e.day) && e.day >= 0 && e.day <= 6
     && Number.isFinite(e.start) && Number.isFinite(e.end) && e.end > e.start && e.start >= 0 && e.end <= 1440;
-  const cleanEvent = (e) => ({
-    id: String(e.id || uid()), title: e.title, cat: CATS.includes(e.cat) ? e.cat : 'other',
-    day: e.day, start: e.start, end: e.end, place: typeof e.place === 'string' ? e.place : ''
-  });
+  const isDateKey = (k) => typeof k === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(k);
+  const cleanEvent = (e) => {
+    const out = {
+      id: String(e.id || uid()), title: e.title, cat: CATS.includes(e.cat) ? e.cat : 'other',
+      day: e.day, start: e.start, end: e.end, place: typeof e.place === 'string' ? e.place : ''
+    };
+    if (typeof e.note === 'string' && e.note) out.note = e.note;
+    if (isDateKey(e.from)) out.from = e.from;
+    if (isDateKey(e.until)) out.until = e.until;
+    return out;
+  };
 
   function normalize(s) {
     const d = defaultState();
@@ -166,6 +179,8 @@
       print: Object.assign({}, d.print, s.print || {})
     };
     out.print.cats = Object.assign({}, d.print.cats, (s.print || {}).cats || {});
+    if (!Array.isArray(out.view.hidden)) out.view.hidden = [];
+    out.view.hidden = out.view.hidden.filter((c) => CATS.includes(c));
     if (!Array.isArray(out.print.days) || out.print.days.length !== 7) out.print.days = d.print.days;
     Object.entries(s.weeks || {}).forEach(([k, w]) => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !w) return;
@@ -252,10 +267,23 @@
   }
   function weekEvents(key) {
     const w = week(key);
-    return state.recurring.filter((e) => !w.skipped.includes(e.id)).map((e) => Object.assign({}, e, { rec: true }))
+    const [y, m, d] = key.split('-').map(Number);
+    const mon = new Date(y, m - 1, d);
+    const active = (e) => {
+      if (!e.from && !e.until) return true;
+      const k = keyOf(addDays(mon, e.day));
+      return (!e.from || k >= e.from) && (!e.until || k <= e.until);
+    };
+    return state.recurring.filter((e) => !w.skipped.includes(e.id) && active(e)).map((e) => Object.assign({}, e, { rec: true }))
       .concat(w.added.map((e) => Object.assign({}, e, { rec: false })));
   }
-  const plain = (e) => ({ id: e.id, title: e.title, cat: e.cat, day: e.day, start: e.start, end: e.end, place: e.place });
+  const plain = (e) => {
+    const o = { id: e.id, title: e.title, cat: e.cat, day: e.day, start: e.start, end: e.end, place: e.place };
+    if (e.note) o.note = e.note;
+    if (e.from) o.from = e.from;
+    if (e.until) o.until = e.until;
+    return o;
+  };
 
   /* =========================================================
      i18n application
@@ -325,8 +353,8 @@
     if (c.showTime) inner += `<span class="ev-m" data-time>${fmt(e.start)}–${fmtEnd(e.end)}</span>`;
     if (c.showPlace && e.place && px >= (c.print ? 36 : 56)) inner += `<span class="ev-m">${esc(e.place)}</span>`;
     if (c.interactive) inner += '<span class="grip" aria-hidden="true"></span>';
-    const label = `${e.title}, ${L().days[e.day]} ${fmt(e.start)}–${fmtEnd(e.end)}${e.place ? ', ' + e.place : ''}`;
-    const attrs = c.interactive ? ` tabindex="0" role="button" aria-label="${esc(label)}"` : '';
+    const label = `${e.title}, ${L().days[e.day]} ${fmt(e.start)}–${fmtEnd(e.end)}${e.place ? ', ' + e.place : ''}${e.note ? ', ' + e.note : ''}`;
+    const attrs = c.interactive ? ` tabindex="0" role="button" aria-label="${esc(label)}" title="${esc(label)}"` : '';
     const cls = `ev cat-${e.cat}${e.rec ? '' : ' once'}${tight ? ' tight' : ''}${oneLine ? ' one' : ''}`;
     return `<div class="${cls}" data-id="${esc(e.id)}" data-rec="${e.rec ? 1 : 0}"${attrs} style="top:calc(${top}% + 1px);height:calc(${hgt}% - 2px);left:calc(${left}% + 2px);width:calc(${w}% - 4px)">${inner}</div>`;
   }
@@ -367,9 +395,12 @@
     return h;
   }
 
-  function legendHTML(evs) {
+  function legendHTML(evs, interactive) {
+    const hidden = interactive ? state.view.hidden : [];
     let h = CATS.filter((c) => evs.some((e) => e.cat === c))
-      .map((c) => `<span class="lg cat-${c}"><i class="sw"></i>${esc(t('cats.' + c))}</span>`).join('');
+      .map((c) => (interactive
+        ? `<button type="button" class="lg lg-btn cat-${c}${hidden.includes(c) ? ' off' : ''}" data-lgcat="${c}" aria-pressed="${!hidden.includes(c)}" title="${esc(t('legendHint'))}"><i class="sw"></i>${esc(t('cats.' + c))}</button>`
+        : `<span class="lg cat-${c}"><i class="sw"></i>${esc(t('cats.' + c))}</span>`)).join('');
     if (evs.some((e) => !e.rec)) h += `<span class="lg"><i class="sw stripe"></i>${esc(t('legendOnce'))}</span>`;
     return h;
   }
@@ -387,28 +418,43 @@
     return [s, Math.min(e, 1440)];
   }
 
+  let viewMode = window.innerWidth < 700 ? 'day' : 'week';
+  let selDay = (new Date().getDay() + 6) % 7;
+
+  function dayLabel() {
+    const d = addDays(curMonday(), selDay);
+    return LO.lang() === 'zh'
+      ? `${d.getMonth() + 1}月${d.getDate()}日 ${L().days[selDay]}`
+      : `${L().days[selDay]}, ${d.toLocaleString('en-US', { month: 'short' })} ${d.getDate()}`;
+  }
+
   function renderHeader() {
     const input = $('#title');
     if (document.activeElement !== input) input.value = state.title || '';
     input.placeholder = t('defaultTitle');
-    $('#range').textContent = rangeLabel(curMonday(), false);
+    $('#range').textContent = viewMode === 'day' ? dayLabel() : rangeLabel(curMonday(), false);
+    const vw = $('#viewWeek');
+    const vd = $('#viewDay');
+    if (vw && vd) { vw.setAttribute('aria-selected', String(viewMode === 'week')); vd.setAttribute('aria-selected', String(viewMode === 'day')); }
     document.title = `${titleText()} | ${rangeLabel(curMonday(), false)}`;
   }
 
   function renderGrid() {
     const mon = curMonday();
-    const evs = weekEvents(keyOf(mon));
+    const all = weekEvents(keyOf(mon));
+    const evs = all.filter((e) => !state.view.hidden.includes(e.cat));
     const [sMin, eMin] = screenRange(evs);
     const now = new Date();
     gridEl.dataset.s = sMin;
     gridEl.dataset.e = eMin;
+    gridEl.classList.toggle('is-day', viewMode === 'day');
     gridEl.innerHTML = gridHTML({
-      monday: mon, days: seq(7), sMin, eMin, events: evs,
+      monday: mon, days: viewMode === 'day' ? [selDay] : seq(7), sMin, eMin, events: evs,
       pxPerHour: HOUR_PX, bodyH: (eMin - sMin) / 60 * HOUR_PX,
       interactive: true, showTime: true, showPlace: true, halfLines: true, print: false,
       todayKey: keyOf(now), nowMin: now.getHours() * 60 + now.getMinutes()
     });
-    $('#legend').innerHTML = legendHTML(evs);
+    $('#legend').innerHTML = legendHTML(all, true);
   }
 
   const hourSelect = (id, lo, hi, sel) => `<select id="${id}">${seq(hi - lo + 1).map((i) => {
@@ -649,14 +695,14 @@
 
   function openNew(day, start, end) {
     dctx = { mode: 'new', rec: false };
-    fillDialog({ title: '', cat: 'other', days: [day], start, end, place: '', repeat: 'once' });
+    fillDialog({ title: '', cat: 'other', days: [day], start, end, place: '', note: '', from: '', until: '', repeat: 'once' });
   }
 
   function openEdit(id, rec) {
     const ev = rec ? state.recurring.find((e) => e.id === id) : week(curKey()).added.find((e) => e.id === id);
     if (!ev) return;
     dctx = { mode: 'edit', rec, id };
-    fillDialog({ title: ev.title, cat: ev.cat, days: [ev.day], start: ev.start, end: ev.end, place: ev.place, repeat: rec ? 'weekly' : 'once' });
+    fillDialog({ title: ev.title, cat: ev.cat, days: [ev.day], start: ev.start, end: ev.end, place: ev.place, note: ev.note || '', from: ev.from || '', until: ev.until || '', repeat: rec ? 'weekly' : 'once' });
   }
 
   function fillDialog(v) {
@@ -667,6 +713,10 @@
     badge.textContent = c.rec ? t('badgeWeekly') : t('badgeOnce');
     $('#fTitle').value = v.title;
     $('#fPlace').value = v.place || '';
+    $('#fNote').value = v.note || '';
+    $('#fFrom').value = v.from || '';
+    $('#fUntil').value = v.until || '';
+    $('#fDurs').innerHTML = [30, 50, 60, 75, 90, 120].map((m) => `<button type="button" class="btn sm" data-dur="${m}">${m} ${esc(t('minUnit'))}</button>`).join('');
     $('#fStart').value = fmt(v.start);
     $('#fEnd').value = v.end >= 1440 ? '00:00' : fmt(v.end);
     $('#fCat').innerHTML = chipsHTML('fcat', CATS.map((k) => [k, `<i class="sw"></i>${esc(t('cats.' + k))}`, 'cat-' + k]), 'radio', [v.cat]);
@@ -676,7 +726,9 @@
     $('#fSave').textContent = c.rec ? t('saveWeekly') : t('save');
     $('#fSaveWeek').hidden = !c.rec;
     $('#fDel').hidden = c.mode === 'new';
+    $('#fDup').hidden = c.mode === 'new';
     $('#fSkip').hidden = !c.rec;
+    syncRange();
     $('#fDel').textContent = t('del');
     $('#fErr').textContent = '';
     delArmed = false;
@@ -695,11 +747,14 @@
     let end = toMin(ev);
     if (ev && end === 0) end = 1440; // "00:00" as end means midnight
     const place = $('#fPlace').value.trim();
+    const note = $('#fNote').value.trim();
+    const from = $('#fFrom').value || '';
+    const until = $('#fUntil').value || '';
     const repEl = $('input[name="frep"]:checked', dlg);
     const repeat = dctx.rec ? 'weekly' : (repEl ? repEl.value : 'once');
     const err = !title ? t('errTitle') : !days.length ? t('errDays') : (!sv || !ev || end <= start) ? t('errTime') : '';
     if (err) { $('#fErr').textContent = err; return null; }
-    return { title, cat, days, start, end, place, repeat };
+    return { title, cat, days, start, end, place, note, from, until, repeat };
   }
 
   function saveDialog(scope) {
@@ -708,20 +763,25 @@
     const c = dctx;
     const key = curKey();
     const base = { title: v.title, cat: v.cat, start: v.start, end: v.end, place: v.place };
+    if (v.note) base.note = v.note;
+    const rbase = Object.assign({}, base);
+    if (v.from) rbase.from = v.from;
+    if (v.until) rbase.until = v.until;
+    const pick = (weekly) => (weekly ? rbase : base);
     mutate(() => {
       const w = week(key, true);
       if (c.mode === 'new') {
-        v.days.forEach((day) => (v.repeat === 'weekly' ? state.recurring : w.added).push(Object.assign({ id: uid(), day }, base)));
+        v.days.forEach((day) => (v.repeat === 'weekly' ? state.recurring : w.added).push(Object.assign({ id: uid(), day }, pick(v.repeat === 'weekly'))));
       } else if (!c.rec) {
         w.added = w.added.filter((e) => e.id !== c.id);
-        v.days.forEach((day, i) => (v.repeat === 'weekly' ? state.recurring : w.added).push(Object.assign({ id: i === 0 ? c.id : uid(), day }, base)));
+        v.days.forEach((day, i) => (v.repeat === 'weekly' ? state.recurring : w.added).push(Object.assign({ id: i === 0 ? c.id : uid(), day }, pick(v.repeat === 'weekly'))));
       } else if (scope === 'week') {
         if (!w.skipped.includes(c.id)) w.skipped.push(c.id);
         v.days.forEach((day) => w.added.push(Object.assign({ id: uid(), day }, base)));
       } else {
-        const orig = state.recurring.find((e) => e.id === c.id);
-        if (orig) Object.assign(orig, base, { day: v.days[0] });
-        v.days.slice(1).forEach((day) => state.recurring.push(Object.assign({ id: uid(), day }, base)));
+        const idx = state.recurring.findIndex((e) => e.id === c.id);
+        if (idx >= 0) state.recurring[idx] = Object.assign({ id: c.id, day: v.days[0] }, rbase);
+        v.days.slice(1).forEach((day) => state.recurring.push(Object.assign({ id: uid(), day }, rbase)));
       }
     }, c.mode === 'new' ? t('added') : (c.rec && scope === 'week' ? t('changedThisWeek') : t('saved')));
     dlg.close();
@@ -729,6 +789,29 @@
 
   $('#dlgForm').addEventListener('submit', (e) => { e.preventDefault(); saveDialog('weekly'); });
   $('#fSaveWeek').addEventListener('click', () => saveDialog('week'));
+  function syncRange() {
+    if (!dctx) return;
+    const repEl = $('input[name="frep"]:checked', dlg);
+    const weekly = dctx.rec || (repEl && repEl.value === 'weekly');
+    $('#rangeFld').hidden = !weekly;
+  }
+  $('#fRepeat').addEventListener('change', syncRange);
+  $('#fDurs').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-dur]');
+    if (!b) return;
+    const sv = $('#fStart').value;
+    if (!sv) return;
+    const end = Math.min(toMin(sv) + +b.dataset.dur, 1440);
+    $('#fEnd').value = end >= 1440 ? '00:00' : fmt(end);
+  });
+  $('#fDup').addEventListener('click', () => {
+    if (!dctx) return;
+    const v = readDialog();
+    if (!v) return;
+    dctx = { mode: 'new', rec: false };
+    fillDialog(v);
+    LO.toast(t('duped'));
+  });
   $('#fCancel').addEventListener('click', () => dlg.close());
   dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
   dlg.addEventListener('close', () => { dctx = null; delArmed = false; });
@@ -976,7 +1059,27 @@
   /* =========================================================
      top bar, menu, keyboard
      ========================================================= */
-  const goWeek = (n) => { weekOffset = n === 0 ? 0 : weekOffset + n; renderAll(); };
+  const goWeek = (n) => {
+    if (n === 0) { weekOffset = 0; selDay = (new Date().getDay() + 6) % 7; }
+    else if (viewMode === 'day') {
+      selDay += n;
+      if (selDay < 0) { selDay = 6; weekOffset--; }
+      if (selDay > 6) { selDay = 0; weekOffset++; }
+    } else weekOffset += n;
+    renderAll();
+  };
+  const setViewMode = (m) => { viewMode = m; renderHeader(); renderGrid(); };
+  $('#viewWeek').addEventListener('click', () => setViewMode('week'));
+  $('#viewDay').addEventListener('click', () => setViewMode('day'));
+  $('#legend').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-lgcat]');
+    if (!b) return;
+    const c = b.dataset.lgcat;
+    const h = state.view.hidden;
+    state.view.hidden = h.includes(c) ? h.filter((x) => x !== c) : h.concat(c);
+    persist();
+    renderGrid();
+  });
   $('#prevWeek').addEventListener('click', () => goWeek(-1));
   $('#nextWeek').addEventListener('click', () => goWeek(1));
   $('#thisWeek').addEventListener('click', () => goWeek(0));
@@ -985,7 +1088,7 @@
 
   function newFromButton() {
     const now = new Date();
-    const day = weekOffset === 0 ? (now.getDay() + 6) % 7 : 0;
+    const day = viewMode === 'day' ? selDay : weekOffset === 0 ? (now.getDay() + 6) % 7 : 0;
     const s = weekOffset === 0 ? clamp(now.getHours() + 1, 7, 22) * 60 : 9 * 60;
     openNew(day, s, s + 60);
   }
@@ -1045,7 +1148,18 @@
       weekEvents(keyOf(mondayOf(date))).forEach((e) => { hrs[e.cat] = (hrs[e.cat] || 0) + (e.end - e.start) / 60; });
       return hrs;
     },
-    catLabel: (c) => t('cats.' + c)
+    catLabel: (c) => t('cats.' + c),
+    addWeekEvents(date, items) {
+      // items: [{ day, start, end, title, place, cat, note }] added as this-week-only events
+      const key = keyOf(mondayOf(date));
+      const list = items.filter((x) => x && x.title && x.end > x.start);
+      if (!list.length) return 0;
+      mutate(() => {
+        const w = week(key, true);
+        list.forEach((x) => w.added.push(cleanEvent(Object.assign({ id: uid(), cat: 'health', place: '' }, x))));
+      }, t('addedPlan')(list.length));
+      return list.length;
+    }
   };
 
   LO.view('schedule', {

@@ -30,6 +30,7 @@
   --other-bar: #2C70BE;   --other-bg: #E0ECFA;   --other-ink: #143C6B;
   --health-bar: #D2456A;  --health-bg: #FCE5EB;  --health-ink: #73192F;
   --life-bar: #1E8F84;    --life-bg: #DBF1EE;    --life-ink: #0D4A44;
+  --study-bar: #C2611F;   --study-bg: #FBE6D6;   --study-ink: #6B2E06;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -45,6 +46,7 @@
     --other-bar: #5C9BE6;   --other-bg: #15253A;   --other-ink: #B3D0F5;
     --health-bar: #EE6F8F;  --health-bg: #3A1822;  --health-ink: #F7BFCD;
     --life-bar: #3DBFAF;    --life-bg: #10302C;    --life-ink: #A6E6DD;
+    --study-bar: #E48A4C;   --study-bg: #3A2215;   --study-ink: #F5C3A0;
   }
 }
 :root[data-theme="dark"] {
@@ -59,6 +61,7 @@
   --other-bar: #5C9BE6;   --other-bg: #15253A;   --other-ink: #B3D0F5;
   --health-bar: #EE6F8F;  --health-bg: #3A1822;  --health-ink: #F7BFCD;
   --life-bar: #3DBFAF;    --life-bg: #10302C;    --life-ink: #A6E6DD;
+  --study-bar: #E48A4C;   --study-bg: #3A2215;   --study-ink: #F5C3A0;
 }
 :root[data-theme="light"] { color-scheme: light; }
 
@@ -66,6 +69,9 @@
 .cat-work    { --bar: var(--work-bar);    --bg: var(--work-bg);    --ink-c: var(--work-ink); }
 .cat-meeting { --bar: var(--meeting-bar); --bg: var(--meeting-bg); --ink-c: var(--meeting-ink); }
 .cat-other   { --bar: var(--other-bar);   --bg: var(--other-bg);   --ink-c: var(--other-ink); }
+.cat-study   { --bar: var(--study-bar);   --bg: var(--study-bg);   --ink-c: var(--study-ink); }
+.cat-health  { --bar: var(--health-bar);  --bg: var(--health-bg);  --ink-c: var(--health-ink); }
+.cat-life    { --bar: var(--life-bar);    --bg: var(--life-bg);    --ink-c: var(--life-ink); }
 
 /* ---------- base ---------- */
 *, *::before, *::after { box-sizing: border-box; }
@@ -198,6 +204,11 @@ main { padding: 18px clamp(14px, 3vw, 32px) 40px; }
 .grid-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .grid-scroll { overflow-x: auto; }
 .grid { min-width: 760px; user-select: none; -webkit-user-select: none; }
+.grid.is-day { min-width: 0; }
+.lg-btn { border: 0; background: transparent; padding: 2px 4px; border-radius: 6px; color: inherit; font: inherit; cursor: pointer; }
+.lg-btn:hover { background: var(--hover); }
+.lg-btn.off { opacity: .45; text-decoration: line-through; }
+.view-seg { flex: none; }
 .grid-foot {
   display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; justify-content: space-between;
   padding: 10px 14px; border-top: 1px solid var(--line);

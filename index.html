@@ -45,6 +45,10 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21v-9"/><path d="M12 12c0-4 3-6.5 7.5-6.5 0 4.5-3 6.5-7.5 6.5z"/><path d="M12 15c0-3.3-2.5-5.5-6.5-5.5 0 3.8 2.5 5.5 6.5 5.5z"/></svg>
       <span data-i18n="app.nav.growth"></span>
     </a>
+    <a href="#/life" data-nav="life">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5L12 4l8 6.5V20H4z"/><path d="M9.5 20v-5.5h5V20"/></svg>
+      <span data-i18n="app.nav.life"></span>
+    </a>
   </nav>
   <div class="menu-wrap" id="menuWrap">
     <button class="icon-btn lg" id="moreBtn" aria-haspopup="true" aria-expanded="false" data-i18n-aria="app.more">⋯</button>
@@ -65,6 +69,7 @@
 <main>
   <nav class="subnav" id="subnav" aria-label="Sub pages" hidden></nav>
   <section class="app-view" id="view-today" hidden></section>
+  <section class="app-view" id="view-news" hidden></section>
   <section class="app-view" id="view-tasks" hidden></section>
 
   <section class="app-view" id="view-schedule" hidden>
@@ -83,6 +88,10 @@
         <button role="tab" id="tabPrint" aria-selected="false" data-i18n="planner.tabPrint"></button>
       </div>
       <div class="tools">
+        <div class="seg sm view-seg" role="tablist">
+          <button type="button" role="tab" id="viewWeek" data-i18n="planner.viewWeek"></button>
+          <button type="button" role="tab" id="viewDay" data-i18n="planner.viewDay"></button>
+        </div>
         <button class="btn primary" id="newBtn"><span aria-hidden="true">＋</span><span data-i18n="planner.newEvent"></span></button>
       </div>
     </div>
@@ -116,6 +125,9 @@
   <section class="app-view" id="view-wishes" hidden></section>
   <section class="app-view" id="view-learn" hidden></section>
   <section class="app-view" id="view-records" hidden></section>
+  <section class="app-view" id="view-food" hidden></section>
+  <section class="app-view" id="view-wardrobe" hidden></section>
+  <section class="app-view" id="view-travel" hidden></section>
 </main>
 
 <!-- schedule event editor -->
@@ -138,17 +150,32 @@
         <span data-i18n="planner.to"></span>
         <input class="input time" type="time" id="fEnd" step="300">
       </div>
+      <div class="quick" id="fDurs"></div>
     </div>
     <label class="fld">
       <span data-i18n="planner.fPlace"></span>
       <input class="input" id="fPlace" maxlength="60" autocomplete="off" data-i18n-ph="planner.fPlacePh">
     </label>
+    <label class="fld">
+      <span data-i18n="planner.fNote"></span>
+      <textarea class="input ta" id="fNote" rows="2" maxlength="300" data-i18n-ph="planner.fNotePh"></textarea>
+    </label>
     <div class="fld" id="repeatFld"><span data-i18n="planner.fRepeat"></span><div class="chips" id="fRepeat"></div></div>
+    <div class="fld" id="rangeFld">
+      <span data-i18n="planner.fRange"></span>
+      <div class="row">
+        <input class="input date" type="date" id="fFrom">
+        <span data-i18n="planner.to"></span>
+        <input class="input date" type="date" id="fUntil">
+      </div>
+      <p class="hint" data-i18n="planner.fRangeHint"></p>
+    </div>
     <p class="err" id="fErr" role="alert"></p>
     <div class="dlg-foot">
       <div>
         <button type="button" class="btn ghost danger" id="fDel"></button>
         <button type="button" class="btn ghost" id="fSkip" data-i18n="planner.skipThisWeek"></button>
+        <button type="button" class="btn ghost" id="fDup" data-i18n="planner.dup"></button>
       </div>
       <div>
         <button type="button" class="btn" id="fCancel" data-i18n="planner.cancel"></button>
@@ -190,6 +217,11 @@
 <script src="js/learn.js"></script>
 <script src="js/records.js"></script>
 <script src="js/wishes.js"></script>
+<script src="js/news-data.js"></script>
+<script src="js/news.js"></script>
+<script src="js/food.js"></script>
+<script src="js/wardrobe.js"></script>
+<script src="js/travel.js"></script>
 <script src="js/today.js"></script>
 </body>
 </html>

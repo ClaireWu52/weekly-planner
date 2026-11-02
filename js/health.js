@@ -26,7 +26,22 @@
       moodTitle: '心情', moods: ['很差', '不太好', '一般', '不错', '很好'], moodNotePh: '想记一句今天的事吗？', last5w: '近 5 周',
       checkTitle: '健康打卡', checkEmpty: '“健康”分类的每日任务会出现在这里。', openTasks: '去任务页添加',
       breathTitle: '呼吸放松', breathSub: '跟着圆圈呼吸一分钟：吸气 4 秒，屏息 4 秒，呼气 6 秒。',
-      start: '开始', stop: '停止', inhale: '吸气', hold: '屏息', exhale: '呼气', breathDone: '做完了。慢慢回到手上的事。'
+      start: '开始', stop: '停止', inhale: '吸气', hold: '屏息', exhale: '呼气', breathDone: '做完了。慢慢回到手上的事。',
+      routines: '训练组', routineHint: '点一个训练组，下面会自动填好动作、时长和强度，再按今天实际改。', newRoutine: '新建训练组', editRoutine: '编辑训练组',
+      routineName: '训练组名称', routineNamePh: '比如：下肢力量', routineMin: '默认时长（分钟）', clearRoutine: '清空',
+      exercises: '做了哪些动作', exName: '动作', sets: '组', reps: '次数或时长', weight: '重量', addEx: '添加动作', exPh: '比如：深蹲',
+      repsPh: '8 或 30秒', weightPh: '60kg', errRoutine: '请填写训练组名称。',
+      summary: '本周总结', sumLine: (n, m, d) => `${n} 次运动，共 ${m} 分钟，活跃 ${d} 天`, vsLast: (x) => (x >= 0 ? `比上周多 ${x} 分钟` : `比上周少 ${-x} 分钟`),
+      byType: '按类型', topEx: '做得最多的动作', exTimes: (n, st) => `${n} 次${st ? `，共 ${st} 组` : ''}`, noEx: '这周还没有记录具体动作。', last4: '近 4 周（分钟）',
+      planTitle: '运动计划', thisWk: '本周', nextWk: '下周', rest: '休息', addToSchedule: '加到课表', planHint: '只会加到那一周的课表，不影响其他周。',
+      planAdded: '这周的计划已经加过课表了，再加会重复。', planEmpty: '先给几天选好训练组。',
+      seedEx: ['深蹲', '硬拉', '卧推', '俯卧撑', '引体向上', '哑铃划船', '肩推', '弓步蹲', '臀桥', '平板支撑', '卷腹', '跑步', '快走', '骑车', '跳绳', '椭圆机', '拉伸', '瑜伽流'],
+      seedRoutines: [
+        ['下肢力量', ['gym'], 50, 2, [['深蹲', 4, '8', ''], ['硬拉', 3, '6', ''], ['弓步蹲', 3, '10', ''], ['臀桥', 3, '12', ''], ['平板支撑', 3, '45秒', '']]],
+        ['上肢力量', ['gym'], 45, 2, [['卧推', 4, '8', ''], ['哑铃划船', 4, '10', ''], ['肩推', 3, '10', ''], ['引体向上', 3, '5', ''], ['卷腹', 3, '15', '']]],
+        ['有氧 30 分钟', ['run'], 30, 2, [['跑步', 1, '30分钟', '']]],
+        ['拉伸放松', ['stretch', 'yoga'], 20, 1, [['拉伸', 1, '15分钟', ''], ['瑜伽流', 1, '5分钟', '']]]
+      ]
     },
     en: {
       title: 'Health',
@@ -45,7 +60,22 @@
       moodTitle: 'Mood', moods: ['Awful', 'Low', 'Okay', 'Good', 'Great'], moodNotePh: 'A line about today?', last5w: 'Last 5 weeks',
       checkTitle: 'Health check-ins', checkEmpty: 'Dailies in the Health category show up here.', openTasks: 'Add on Tasks',
       breathTitle: 'Breathe', breathSub: 'Follow the circle for a minute: in for 4, hold for 4, out for 6.',
-      start: 'Start', stop: 'Stop', inhale: 'Breathe in', hold: 'Hold', exhale: 'Breathe out', breathDone: 'Done. Ease back into your day.'
+      start: 'Start', stop: 'Stop', inhale: 'Breathe in', hold: 'Hold', exhale: 'Breathe out', breathDone: 'Done. Ease back into your day.',
+      routines: 'Workout groups', routineHint: 'Tap a group to fill in exercises, length and intensity, then adjust to what you actually did.', newRoutine: 'New group', editRoutine: 'Edit group',
+      routineName: 'Group name', routineNamePh: 'e.g. Lower body', routineMin: 'Default length (min)', clearRoutine: 'Clear',
+      exercises: 'Exercises', exName: 'Exercise', sets: 'Sets', reps: 'Reps or time', weight: 'Weight', addEx: 'Add exercise', exPh: 'e.g. Squat',
+      repsPh: '8 or 30s', weightPh: '60kg', errRoutine: 'Name the group.',
+      summary: 'This week', sumLine: (n, m, d) => `${n} workouts, ${m} min, ${d} active days`, vsLast: (x) => (x >= 0 ? `${x} min more than last week` : `${-x} min less than last week`),
+      byType: 'By type', topEx: 'Most done exercises', exTimes: (n, st) => `${n}×${st ? `, ${st} sets` : ''}`, noEx: 'No exercises logged this week.', last4: 'Last 4 weeks (min)',
+      planTitle: 'Workout plan', thisWk: 'This week', nextWk: 'Next week', rest: 'Rest', addToSchedule: 'Add to schedule', planHint: 'Adds to that week only.',
+      planAdded: 'This plan is already on the schedule; adding again will duplicate it.', planEmpty: 'Pick a group for some days first.',
+      seedEx: ['Squat', 'Deadlift', 'Bench press', 'Push-up', 'Pull-up', 'Dumbbell row', 'Shoulder press', 'Lunge', 'Glute bridge', 'Plank', 'Crunch', 'Run', 'Brisk walk', 'Bike', 'Jump rope', 'Elliptical', 'Stretching', 'Yoga flow'],
+      seedRoutines: [
+        ['Lower body', ['gym'], 50, 2, [['Squat', 4, '8', ''], ['Deadlift', 3, '6', ''], ['Lunge', 3, '10', ''], ['Glute bridge', 3, '12', ''], ['Plank', 3, '45s', '']]],
+        ['Upper body', ['gym'], 45, 2, [['Bench press', 4, '8', ''], ['Dumbbell row', 4, '10', ''], ['Shoulder press', 3, '10', ''], ['Pull-up', 3, '5', ''], ['Crunch', 3, '15', '']]],
+        ['Cardio 30', ['run'], 30, 2, [['Run', 1, '30min', '']]],
+        ['Stretch', ['stretch', 'yoga'], 20, 1, [['Stretching', 1, '15min', ''], ['Yoga flow', 1, '5min', '']]]
+      ]
     }
   });
   const t = LO.ns('health');
@@ -54,7 +84,14 @@
   /* ---------------- data ---------------- */
   const isKey = (k) => typeof k === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(k);
   const isTime = (v) => typeof v === 'string' && /^\d{2}:\d{2}$/.test(v);
-  const defaults = () => ({ v: 1, water: { goal: 8, days: {} }, workouts: [], workoutGoal: 150, sleep: { goal: 8, days: {} }, mood: { days: {} } });
+  const str = (v) => (typeof v === 'string' ? v : '');
+  const normItems = (arr) => (Array.isArray(arr) ? arr : []).filter((x) => x && typeof x.name === 'string' && x.name.trim()).slice(0, 30)
+    .map((x) => ({ name: x.name.trim().slice(0, 40), sets: LO.clamp(Math.round(+x.sets) || 0, 0, 99), reps: str(x.reps).slice(0, 20), weight: str(x.weight).slice(0, 20) }));
+  const seedRoutines = () => t('seedRoutines').map(([name, types, min, level, items]) => ({
+    id: uid(), name, types, min, level, items: items.map(([n, st, r, w]) => ({ name: n, sets: st, reps: r, weight: w }))
+  }));
+  const defaults = () => ({ v: 1, water: { goal: 8, days: {} }, workouts: [], workoutGoal: 150, sleep: { goal: 8, days: {} }, mood: { days: {} },
+    exercises: t('seedEx').slice(), routines: seedRoutines(), plan: {} });
   function normalize(s) {
     const out = {
       v: 1,
@@ -62,13 +99,27 @@
       workouts: [],
       workoutGoal: LO.clamp(+s.workoutGoal || 150, 10, 2000),
       sleep: { goal: LO.clamp(+((s.sleep || {}).goal) || 8, 4, 12), days: {} },
-      mood: { days: {} }
+      mood: { days: {} },
+      exercises: Array.isArray(s.exercises) ? [...new Set(s.exercises.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim().slice(0, 40)))].slice(0, 200) : t('seedEx').slice(),
+      routines: (Array.isArray(s.routines) ? s.routines : seedRoutines()).filter((r) => r && typeof r.name === 'string' && r.name.trim()).map((r) => ({
+        id: String(r.id || uid()), name: r.name.trim().slice(0, 40),
+        types: (Array.isArray(r.types) ? r.types : []).filter((x) => WTYPES.includes(x)),
+        min: LO.clamp(Math.round(+r.min) || 30, 5, 600), level: [1, 2, 3].includes(r.level) ? r.level : 2, items: normItems(r.items)
+      })),
+      plan: {}
     };
+    Object.entries(s.plan || {}).forEach(([k, wk]) => {
+      if (!isKey(k) || !wk || typeof wk !== 'object') return;
+      const o = {};
+      LO.seq(7).forEach((d) => { const x = wk[d]; if (x && typeof x.r === 'string') o[d] = { r: x.r, time: isTime(x.time) ? x.time : '18:00' }; });
+      if (wk.added) o.added = true;
+      out.plan[k] = o;
+    });
     Object.entries((s.water || {}).days || {}).forEach(([k, v]) => { if (isKey(k) && +v > 0) out.water.days[k] = Math.min(+v, 40); });
     (s.workouts || []).forEach((w) => {
       if (!w || !isKey(w.date) || !(+w.min > 0)) return;
       const types = (Array.isArray(w.types) ? w.types : []).filter((x) => WTYPES.includes(x));
-      out.workouts.push({ id: String(w.id || uid()), date: w.date, types: types.length ? types : ['other'], min: Math.min(+w.min, 1440), level: [1, 2, 3].includes(w.level) ? w.level : 2, note: typeof w.note === 'string' ? w.note : '' });
+      out.workouts.push({ id: String(w.id || uid()), date: w.date, types: types.length ? types : ['other'], min: Math.min(+w.min, 1440), level: [1, 2, 3].includes(w.level) ? w.level : 2, note: str(w.note), routine: str(w.routine).slice(0, 40), items: normItems(w.items) });
     });
     Object.entries((s.sleep || {}).days || {}).forEach(([k, v]) => {
       if (isKey(k) && v && isTime(v.bed) && isTime(v.wake)) out.sleep.days[k] = { bed: v.bed, wake: v.wake, q: [1, 2, 3].includes(v.q) ? v.q : 2 };
@@ -87,6 +138,22 @@
     if (m <= 0) m += 1440;
     return LO.round1(m / 60);
   };
+  const itemText = (x) => `${x.name}${x.sets ? ` ${x.sets}×${x.reps || '?'}` : x.reps ? ` ${x.reps}` : ''}${x.weight ? ` ${x.weight}` : ''}`;
+  function weekRange(offset) {
+    const mon = LO.addDays(LO.mondayOf(new Date()), offset * 7);
+    return { mon, a: LO.keyOf(mon), b: LO.keyOf(LO.addDays(mon, 6)) };
+  }
+  function weekStats(offset) {
+    const { a, b } = weekRange(offset);
+    const ws = H.s.workouts.filter((w) => w.date >= a && w.date <= b);
+    const byType = {};
+    const ex = {};
+    ws.forEach((w) => {
+      w.types.forEach((x) => { byType[x] = (byType[x] || 0) + w.min / w.types.length; });
+      w.items.forEach((it) => { const e = ex[it.name] || (ex[it.name] = { n: 0, sets: 0 }); e.n++; e.sets += it.sets || 0; });
+    });
+    return { n: ws.length, min: ws.reduce((x, w) => x + w.min, 0), days: new Set(ws.map((w) => w.date)).size, byType, ex };
+  }
   const minutesOn = (key) => H.s.workouts.filter((w) => w.date === key).reduce((a, w) => a + w.min, 0);
   function weekMinutes() {
     const mon = LO.keyOf(LO.mondayOf(new Date()));
@@ -177,7 +244,22 @@
 
   /* ---------------- page ---------------- */
   const view = $('#view-health');
-  const draft = { date: '', types: [], min: '', level: 2, note: '' };
+  const draft = { date: '', types: [], min: '', level: 2, note: '', routine: '', items: [] };
+  let planOffset = 1;
+  function applyRoutine(r) {
+    draft.routine = r.name;
+    draft.types = r.types.slice();
+    draft.min = String(r.min);
+    draft.level = r.level;
+    draft.items = r.items.map((x) => Object.assign({}, x));
+  }
+  const exRow = (x, i) => `<div class="ex-row" data-i="${i}">`
+    + `<input class="input sm" data-f="name" list="exList" maxlength="40" value="${esc(x.name)}" placeholder="${esc(t('exPh'))}" aria-label="${esc(t('exName'))}">`
+    + `<input class="input sm num" type="number" min="0" max="99" data-f="sets" value="${x.sets || ''}" placeholder="${esc(t('sets'))}" aria-label="${esc(t('sets'))}">`
+    + '<span class="ex-x">×</span>'
+    + `<input class="input sm" data-f="reps" maxlength="20" value="${esc(x.reps)}" placeholder="${esc(t('repsPh'))}" aria-label="${esc(t('reps'))}">`
+    + `<input class="input sm" data-f="weight" maxlength="20" value="${esc(x.weight)}" placeholder="${esc(t('weightPh'))}" aria-label="${esc(t('weight'))}">`
+    + `<button type="button" class="icon-btn sm ghost" data-exdel aria-label="${esc(tc('delete'))}">${LO.icon.x}</button></div>`;
   const sdraft = { date: '', bed: '23:30', wake: '07:30', q: 2 };
 
   function render() {
@@ -203,9 +285,11 @@
 
     h += '<div class="health-grid"><div class="hcol">';
     h += workoutCard();
-    h += sleepCard();
+    h += planCard();
+    h += summaryCard();
     h += '</div><div class="hcol">';
     h += waterCard(cups);
+    h += sleepCard();
     h += moodCard(mood);
     h += checkCard();
     h += breathCard();
@@ -221,6 +305,11 @@
       + `<label class="mini-field">${esc(t('weekGoal'))}<input type="number" min="10" max="2000" step="10" class="input sm num" data-goal="workout" value="${S.workoutGoal}"></label></header>`;
     h += `<div class="progress"><span style="width:${LO.clamp(wk / S.workoutGoal, 0, 1) * 100}%"></span></div>`
       + `<p class="progress-label">${wk} / ${S.workoutGoal} ${esc(tc('min'))}</p>`;
+    h += `<div class="routine-bar"><span class="lbl">${esc(t('routines'))}</span>`
+      + S.routines.map((r) => `<span class="rt${draft.routine === r.name ? ' on' : ''}"><button type="button" class="rt-pick" data-rt="${esc(r.id)}">${esc(r.name)}</button>`
+        + `<button type="button" class="rt-edit" data-rtedit="${esc(r.id)}" aria-label="${esc(t('editRoutine'))}" title="${esc(t('editRoutine'))}">✎</button></span>`).join('')
+      + `<button type="button" class="btn sm ghost" data-rtnew>${LO.icon.plus}<span>${esc(t('newRoutine'))}</span></button></div>`
+      + `<p class="hint">${esc(t('routineHint'))}</p>`;
     h += '<form class="wform" data-form="workout">'
       + `<div class="fld"><span>${esc(t('types'))}</span><div class="chips">${LO.chips('wtype', WTYPES.map((x) => [x, esc(t('wt.' + x))]), 'checkbox', draft.types)}</div></div>`
       + '<div class="form-row">'
@@ -229,8 +318,12 @@
       + '</div>'
       + `<div class="quick">${[15, 30, 45, 60, 90].map((m) => `<button type="button" class="btn sm" data-qmin="${m}">${m}</button>`).join('')}</div>`
       + `<div class="fld"><span>${esc(t('level'))}</span><div class="chips">${LO.chips('wlevel', [1, 2, 3].map((l) => [l, esc(t('levels')[l - 1])]), 'radio', [draft.level])}</div></div>`
+      + `<div class="fld"><span>${esc(t('exercises'))}</span><div class="ex-rows" data-exrows="draft">${draft.items.map(exRow).join('')}</div>`
+      + `<button type="button" class="btn sm" data-exadd="draft">${LO.icon.plus}<span>${esc(t('addEx'))}</span></button></div>`
       + `<label class="fld"><span>${esc(t('note'))}</span><input class="input" name="wnote" maxlength="200" value="${esc(draft.note)}" placeholder="${esc(t('notePh'))}"></label>`
-      + `<p class="err" data-err="workout"></p><button type="submit" class="btn primary">${esc(t('log'))}</button></form>`;
+      + `<p class="err" data-err="workout"></p><div class="row"><button type="submit" class="btn primary">${esc(t('log'))}</button>`
+      + `${draft.routine || draft.items.length ? `<button type="button" class="btn ghost" data-wclear>${esc(t('clearRoutine'))}</button>` : ''}</div></form>`
+      + `<datalist id="exList">${S.exercises.map((x) => `<option value="${esc(x)}">`).join('')}</datalist>`;
 
     const days = LO.seq(30).map((i) => LO.addDays(new Date(), i - 29));
     h += `<h3 class="sub-head">${esc(t('last30'))}</h3>`
@@ -245,11 +338,117 @@
     if (!list.length) h += `<p class="empty-note">${esc(t('noWorkouts'))}</p>`;
     else {
       h += `<ul class="log-list">${list.map((w) => `<li><span class="log-date">${LO.shortDate(w.date)}</span>`
-        + `<span class="log-main"><b>${esc(w.types.map((x) => t('wt.' + x)).join('、'))}</b> ${w.min} ${esc(tc('min'))}<span class="lvl l${w.level}">${esc(t('levels')[w.level - 1])}</span>`
+        + `<span class="log-main"><b>${esc(w.routine || w.types.map((x) => t('wt.' + x)).join('、'))}</b> ${w.min} ${esc(tc('min'))}<span class="lvl l${w.level}">${esc(t('levels')[w.level - 1])}</span>`
+        + `${w.items.length ? `<span class="log-note">${esc(w.items.map(itemText).join('、'))}</span>` : ''}`
         + `${w.note ? `<span class="log-note">${esc(w.note)}</span>` : ''}</span>`
         + `<button type="button" class="icon-btn sm ghost" data-delw="${esc(w.id)}" aria-label="${esc(tc('delete'))}">${LO.icon.x}</button></li>`).join('')}</ul>`;
     }
     return `${h}</section>`;
+  }
+
+  function summaryCard() {
+    const cur = weekStats(0);
+    const prev = weekStats(-1);
+    const maxT = Math.max(1, ...Object.values(cur.byType));
+    const top = Object.entries(cur.ex).sort((a, b) => b[1].n - a[1].n || b[1].sets - a[1].sets).slice(0, 5);
+    let h = `<section class="card hcard" id="hw-summary"><header class="card-head"><h2>${esc(t('summary'))}</h2></header>`
+      + `<p class="sum-line"><b>${esc(t('sumLine')(cur.n, cur.min, cur.days))}</b><span class="hint">${esc(t('vsLast')(cur.min - prev.min))}</span></p>`;
+    const types = Object.entries(cur.byType).sort((a, b) => b[1] - a[1]);
+    if (types.length) {
+      h += `<h3 class="sub-head">${esc(t('byType'))}</h3><ul class="hours">${types.map(([k, m]) => `<li class="k-health"><span class="hn">${esc(t('wt.' + k))}</span><b>${Math.round(m)} ${esc(tc('min'))}</b>`
+        + `<span class="bar"><span style="width:${m / maxT * 100}%"></span></span></li>`).join('')}</ul>`;
+    }
+    h += `<h3 class="sub-head">${esc(t('topEx'))}</h3>`;
+    h += top.length ? `<ul class="top-ex">${top.map(([n, v]) => `<li><span>${esc(n)}</span><span class="hint">${esc(t('exTimes')(v.n, v.sets))}</span></li>`).join('')}</ul>`
+      : `<p class="empty-note">${esc(t('noEx'))}</p>`;
+    h += `<h3 class="sub-head">${esc(t('last4'))}</h3>` + LO.bars([-3, -2, -1, 0].map((o) => {
+      const st = weekStats(o);
+      const { mon } = weekRange(o);
+      return { v: st.min, label: LO.shortDate(LO.keyOf(mon)), title: `${st.min} ${tc('min')}`, cls: 'c-work' };
+    }), { height: 70, goal: H.s.workoutGoal });
+    return `${h}</section>`;
+  }
+
+  function planCard() {
+    const S = H.s;
+    const { mon, a } = weekRange(planOffset);
+    const plan = S.plan[a] || {};
+    let h = `<section class="card hcard" id="hw-plan"><header class="card-head"><h2>${esc(t('planTitle'))}</h2>`
+      + `<div class="seg sm"><button type="button" data-pw="0" aria-selected="${planOffset === 0}">${esc(t('thisWk'))}</button><button type="button" data-pw="1" aria-selected="${planOffset === 1}">${esc(t('nextWk'))}</button></div></header>`;
+    h += '<div class="plan-rows">';
+    LO.seq(7).forEach((d) => {
+      const x = plan[d] || { r: '', time: '18:00' };
+      const date = LO.addDays(mon, d);
+      h += `<div class="plan-row${x.r ? ' on' : ''}"><span class="pd">${esc(tc('days')[d])} <small>${LO.shortDate(LO.keyOf(date))}</small></span>`
+        + `<select data-pday="${d}" aria-label="${esc(tc('days')[d])}"><option value="">${esc(t('rest'))}</option>${S.routines.map((r) => `<option value="${esc(r.id)}"${x.r === r.id ? ' selected' : ''}>${esc(r.name)}</option>`).join('')}</select>`
+        + `<input type="time" class="input sm" data-ptime="${d}" value="${esc(x.time)}"${x.r ? '' : ' disabled'}></div>`;
+    });
+    h += '</div>';
+    h += `<div class="row plan-actions"><button type="button" class="btn primary" data-padd>${esc(t('addToSchedule'))}</button>`
+      + `<span class="hint">${esc(plan.added ? t('planAdded') : t('planHint'))}</span></div>`;
+    return `${h}</section>`;
+  }
+
+  function openRoutine(id) {
+    const r = id ? H.s.routines.find((x) => x.id === id) : null;
+    const v = r || { name: '', types: ['gym'], min: 45, level: 2, items: [{ name: '', sets: 3, reps: '10', weight: '' }] };
+    LO.openForm({
+      title: r ? t('editRoutine') : t('newRoutine'),
+      body: `<label class="fld"><span>${esc(t('routineName'))}</span><input class="input" name="rname" maxlength="40" value="${esc(v.name)}" placeholder="${esc(t('routineNamePh'))}"></label>`
+        + `<div class="fld"><span>${esc(t('types'))}</span><div class="chips">${LO.chips('rtype', WTYPES.map((x) => [x, esc(t('wt.' + x))]), 'checkbox', v.types)}</div></div>`
+        + `<div class="form-row"><label class="fld"><span>${esc(t('routineMin'))}</span><input class="input" type="number" min="5" max="600" name="rmin" value="${v.min}"></label>`
+        + `<div class="fld"><span>${esc(t('level'))}</span><div class="chips">${LO.chips('rlevel', [1, 2, 3].map((l) => [l, esc(t('levels')[l - 1])]), 'radio', [v.level])}</div></div></div>`
+        + `<div class="fld"><span>${esc(t('exercises'))}</span><div class="ex-rows" data-exrows="dlg">${v.items.map(exRow).join('')}</div>`
+        + `<button type="button" class="btn sm" data-exadd="dlg">${LO.icon.plus}<span>${esc(t('addEx'))}</span></button></div>`
+        + `<datalist id="exListDlg">${H.s.exercises.map((x) => `<option value="${esc(x)}">`).join('')}</datalist>`,
+      onOpen(dlg) {
+        const rows = $('.ex-rows', dlg);
+        $$('input[data-f="name"]', rows).forEach((i) => i.setAttribute('list', 'exListDlg'));
+        $('[data-exadd="dlg"]', dlg).addEventListener('click', () => {
+          rows.insertAdjacentHTML('beforeend', exRow({ name: '', sets: 3, reps: '10', weight: '' }, rows.children.length));
+          const last = rows.lastElementChild;
+          $('input[data-f="name"]', last).setAttribute('list', 'exListDlg');
+          $('input[data-f="name"]', last).focus();
+        });
+        rows.addEventListener('click', (e) => { const b = e.target.closest('[data-exdel]'); if (b) b.closest('.ex-row').remove(); });
+      },
+      onSave(dlg) {
+        const name = $('input[name="rname"]', dlg).value.trim();
+        if (!name) return t('errRoutine');
+        const items = normItems($$('.ex-row', dlg).map((row) => ({
+          name: $('[data-f="name"]', row).value, sets: $('[data-f="sets"]', row).value,
+          reps: $('[data-f="reps"]', row).value.trim(), weight: $('[data-f="weight"]', row).value.trim()
+        })));
+        const fields = { name, types: LO.checkedVals(dlg, 'rtype').filter((x) => WTYPES.includes(x)), min: LO.clamp(Math.round(+$('input[name="rmin"]', dlg).value) || 30, 5, 600), level: +(LO.checkedVal(dlg, 'rlevel') || 2), items };
+        LO.mutate(H, (s) => {
+          if (r) Object.assign(s.routines.find((x) => x.id === id), fields);
+          else s.routines.push(Object.assign({ id: uid() }, fields));
+          items.forEach((x) => { if (!s.exercises.includes(x.name)) s.exercises.push(x.name); });
+        }, r ? tc('saved') : tc('added'));
+        return true;
+      },
+      onDelete: r ? () => LO.mutate(H, (s) => { s.routines = s.routines.filter((x) => x.id !== id); }, tc('deleted')) : null
+    });
+  }
+
+  function addPlanToSchedule() {
+    const { mon, a } = weekRange(planOffset);
+    const plan = H.s.plan[a] || {};
+    const items = [];
+    LO.seq(7).forEach((d) => {
+      const x = plan[d];
+      if (!x || !x.r) return;
+      const r = H.s.routines.find((y) => y.id === x.r);
+      if (!r) return;
+      const start = LO.toMin(x.time || '18:00');
+      items.push({ day: d, start, end: Math.min(start + r.min, 1440), title: r.name, cat: 'health', note: r.items.map(itemText).join('、') });
+    });
+    if (!items.length) { LO.toast(t('planEmpty')); return; }
+    if (!LO.planner || !LO.planner.addWeekEvents) return;
+    LO.planner.addWeekEvents(mon, items);
+    H.s.plan[a] = Object.assign({}, plan, { added: true });
+    H.save();
+    LO.refresh();
   }
 
   function sleepCard() {
@@ -338,6 +537,24 @@
   if (LO.tasks) LO.tasks.attach(view);
 
   view.addEventListener('click', (e) => {
+    const rt = e.target.closest('[data-rt]');
+    if (rt) { const r = H.s.routines.find((x) => x.id === rt.dataset.rt); if (r) { applyRoutine(r); render(); } return; }
+    const rte = e.target.closest('[data-rtedit]');
+    if (rte) { openRoutine(rte.dataset.rtedit); return; }
+    if (e.target.closest('[data-rtnew]')) { openRoutine(null); return; }
+    if (e.target.closest('[data-wclear]')) { draft.routine = ''; draft.items = []; draft.types = []; draft.min = ''; draft.level = 2; render(); return; }
+    if (e.target.closest('[data-exadd="draft"]')) {
+      draft.items.push({ name: '', sets: 3, reps: '', weight: '' });
+      render();
+      const rows = $$('[data-exrows="draft"] .ex-row', view);
+      if (rows.length) $('input[data-f="name"]', rows[rows.length - 1]).focus();
+      return;
+    }
+    const exd = e.target.closest('[data-exrows="draft"] [data-exdel]');
+    if (exd) { draft.items.splice(+exd.closest('.ex-row').dataset.i, 1); render(); return; }
+    const pw = e.target.closest('[data-pw]');
+    if (pw) { planOffset = +pw.dataset.pw; render(); return; }
+    if (e.target.closest('[data-padd]')) { addPlanToSchedule(); return; }
     const sc = e.target.closest('[data-scroll]');
     if (sc) { const el = document.getElementById(sc.dataset.scroll); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
     const w = e.target.closest('[data-water]');
@@ -360,6 +577,12 @@
 
   view.addEventListener('input', (e) => {
     const el = e.target;
+    const exRowEl = el.closest('[data-exrows="draft"] .ex-row');
+    if (exRowEl && el.dataset.f) {
+      const it = draft.items[+exRowEl.dataset.i];
+      if (it) it[el.dataset.f] = el.dataset.f === 'sets' ? (+el.value || 0) : el.value;
+      return;
+    }
     if (el.name === 'wnote') draft.note = el.value;
     else if (el.name === 'wmin') draft.min = el.value;
     else if (el.matches('[data-moodnote]')) {
@@ -374,6 +597,18 @@
 
   view.addEventListener('change', (e) => {
     const el = e.target;
+    if (el.dataset.pday != null || el.dataset.ptime != null) {
+      const { a } = weekRange(planOffset);
+      const d = el.dataset.pday != null ? +el.dataset.pday : +el.dataset.ptime;
+      LO.mutate(H, (s) => {
+        const wk = s.plan[a] || (s.plan[a] = {});
+        const x = wk[d] || { r: '', time: '18:00' };
+        if (el.dataset.pday != null) x.r = el.value; else x.time = el.value || '18:00';
+        if (x.r) wk[d] = x; else delete wk[d];
+      });
+      return;
+    }
+    if (el.closest('[data-exrows]')) return;
     if (el.name === 'wtype') draft.types = LO.checkedVals(view, 'wtype');
     else if (el.name === 'wlevel') draft.level = +el.value;
     else if (el.name === 'wdate') draft.date = el.value || LO.todayKey();
@@ -401,9 +636,13 @@
       const err = $('[data-err="workout"]', f);
       if (!types.length) { err.textContent = t('errTypes'); return; }
       if (!(min > 0)) { err.textContent = t('errMin'); return; }
-      const rec = { id: uid(), date: $('input[name="wdate"]', f).value || LO.todayKey(), types, min: Math.min(min, 1440), level: +(LO.checkedVal(f, 'wlevel') || 2), note: $('input[name="wnote"]', f).value.trim() };
-      draft.types = []; draft.min = ''; draft.note = ''; draft.level = 2;
-      LO.mutate(H, (s) => { s.workouts.push(rec); }, t('logged'));
+      const items = normItems(draft.items);
+      const rec = { id: uid(), date: $('input[name="wdate"]', f).value || LO.todayKey(), types, min: Math.min(min, 1440), level: +(LO.checkedVal(f, 'wlevel') || 2), note: $('input[name="wnote"]', f).value.trim(), routine: draft.routine, items };
+      draft.types = []; draft.min = ''; draft.note = ''; draft.level = 2; draft.routine = ''; draft.items = [];
+      LO.mutate(H, (s) => {
+        s.workouts.push(rec);
+        items.forEach((x) => { if (!s.exercises.includes(x.name)) s.exercises.push(x.name); });
+      }, t('logged'));
     } else {
       const date = $('input[name="sdate"]', f).value || LO.todayKey();
       const bed = $('input[name="sbed"]', f).value;

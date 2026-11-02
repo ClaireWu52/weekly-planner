@@ -110,20 +110,20 @@
   LO.strings('app', {
     zh: {
       brand: '我的计划本',
-      nav: { today: '今天', tasks: '任务', schedule: '课表', health: '健康', goals: '目标', growth: '成长' },
-      sub: { plan: '年度目标', wishes: '心愿清单', learn: '学习清单', records: '成长记录' },
+      nav: { today: '今天', tasks: '任务', schedule: '课表', health: '健康', goals: '目标', growth: '成长', life: '生活' },
+      sub: { today: '今日概览', news: '今日新闻', plan: '年度目标', wishes: '心愿清单', learn: '学习清单', records: '成长记录', food: '吃什么', wardrobe: '电子衣橱', travel: '旅游攻略' },
       more: '更多选项', undo: '撤销', exportData: '导出全部数据', importData: '导入备份', resetSchedule: '恢复初始课表',
       theme: '外观', themeNames: { auto: '跟随系统', light: '浅色', dark: '深色' }, langSwitch: 'English', shortcuts: '快捷键',
-      shortcutsText: '1–6 切换页面　⌘/Ctrl+Z 撤销　课表页：N 新建　← → 切换周　T 本周　P 打印',
+      shortcutsText: '1–7 切换页面　⌘/Ctrl+Z 撤销　课表页：N 新建　← → 切换周　T 本周　P 打印',
       imported: '备份已导入', importFailed: '这个文件不是有效的备份'
     },
     en: {
       brand: 'My Planner',
-      nav: { today: 'Today', tasks: 'Tasks', schedule: 'Schedule', health: 'Health', goals: 'Goals', growth: 'Growth' },
-      sub: { plan: 'Yearly goals', wishes: 'Wishes', learn: 'Learning', records: 'Growth log' },
+      nav: { today: 'Today', tasks: 'Tasks', schedule: 'Schedule', health: 'Health', goals: 'Goals', growth: 'Growth', life: 'Life' },
+      sub: { today: 'Overview', news: 'News', plan: 'Yearly goals', wishes: 'Wishes', learn: 'Learning', records: 'Growth log', food: 'What to eat', wardrobe: 'Wardrobe', travel: 'Travel' },
       more: 'More options', undo: 'Undo', exportData: 'Export all data', importData: 'Import backup', resetSchedule: 'Restore default schedule',
       theme: 'Appearance', themeNames: { auto: 'System', light: 'Light', dark: 'Dark' }, langSwitch: '中文', shortcuts: 'Keyboard shortcuts',
-      shortcutsText: '1–6 switch pages   ⌘/Ctrl+Z undo   Schedule: N new   ← → week   T this week   P print',
+      shortcutsText: '1–7 switch pages   ⌘/Ctrl+Z undo   Schedule: N new   ← → week   T this week   P print',
       imported: 'Backup imported', importFailed: "This file isn't a valid backup"
     }
   });
@@ -138,6 +138,44 @@
     if (diff === 1) return { text: tc('tomorrow'), cls: 'is-soon', diff };
     const d = LO.parseKey(key);
     return { text: `${LO.shortDate(key)} ${tc('days')[LO.wd(d)]}`, cls: diff <= 3 ? 'is-soon' : '', diff };
+  };
+
+  /* ---------------- file store (IndexedDB, for photos) ---------------- */
+  let dbPromise = null;
+  function idb() {
+    if (!dbPromise) {
+      dbPromise = new Promise((resolve, reject) => {
+        if (!window.indexedDB) { reject(new Error('no indexedDB')); return; }
+        const req = indexedDB.open('planner-files', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('files');
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    return dbPromise;
+  }
+  const tx = (mode, fn) => idb().then((db) => new Promise((resolve, reject) => {
+    const t = db.transaction('files', mode);
+    const out = fn(t.objectStore('files'));
+    t.oncomplete = () => resolve(out && 'result' in out ? out.result : undefined);
+    t.onerror = () => reject(t.error);
+  }));
+  LO.files = {
+    put: (key, val) => tx('readwrite', (st) => { st.put(val, key); }),
+    get: (key) => tx('readonly', (st) => st.get(key)),
+    del: (key) => tx('readwrite', (st) => { st.delete(key); }),
+    async all() {
+      const db = await idb();
+      return new Promise((resolve, reject) => {
+        const out = {};
+        const req = db.transaction('files', 'readonly').objectStore('files').openCursor();
+        req.onsuccess = () => {
+          const cur = req.result;
+          if (cur) { out[cur.key] = cur.value; cur.continue(); } else resolve(out);
+        };
+        req.onerror = () => reject(req.error);
+      });
+    }
   };
 
   /* ---------------- stores with shared undo ---------------- */
@@ -187,10 +225,10 @@
 
   /* ---------------- router ---------------- */
   // Top-level pages in the nav. "goals" and "growth" each hold two sub-pages.
-  const NAV = ['today', 'tasks', 'schedule', 'health', 'goals', 'growth'];
-  const GROUPS = { goals: ['plan', 'wishes'], growth: ['learn', 'records'] };
-  const PARENT = { plan: 'goals', wishes: 'goals', learn: 'growth', records: 'growth' };
-  const lastSub = { goals: 'plan', growth: 'learn' };
+  const NAV = ['today', 'tasks', 'schedule', 'health', 'goals', 'growth', 'life'];
+  const GROUPS = { today: ['today', 'news'], goals: ['plan', 'wishes'], growth: ['learn', 'records'], life: ['food', 'wardrobe', 'travel'] };
+  const PARENT = { news: 'today', plan: 'goals', wishes: 'goals', learn: 'growth', records: 'growth', food: 'life', wardrobe: 'life', travel: 'life' };
+  const lastSub = { today: 'today', goals: 'plan', growth: 'learn', life: 'food' };
   const views = {};
   let current = null;
   LO.view = (name, def) => { views[name] = def; };
@@ -204,8 +242,8 @@
     const h = window.location.hash.replace(/^#\/?/, '');
     if (h === 'print') return { top: 'schedule', leaf: 'schedule', print: true };
     const [a, b] = h.split('/');
+    if (GROUPS[a]) return { top: a, leaf: GROUPS[a].includes(b) ? b : (a === 'today' ? 'today' : lastSub[a]) };
     if (PARENT[a]) return { top: PARENT[a], leaf: a };
-    if (GROUPS[a]) return { top: a, leaf: GROUPS[a].includes(b) ? b : lastSub[a] };
     const top = NAV.includes(a) ? a : 'today';
     return { top, leaf: top, print: h === 'schedule/print' };
   }
@@ -363,10 +401,13 @@
     return v && v.undo ? v.undo : LO.undo;
   }
 
-  function exportAll() {
+  async function exportAll() {
     Object.values(stores).forEach((s) => s.saveNow());
     if (LO.planner && LO.planner.flush) LO.planner.flush();
+    let files = {};
+    try { files = await LO.files.all(); } catch (_) { files = {}; }
     const data = {
+      files,
       app: 'weekly-planner', v: 3, exportedAt: new Date().toISOString(), settings,
       planner: readJSON('weekly-planner:v2'),
       stores: Object.fromEntries(Object.values(stores).map((s) => [s.name, s.s]))
@@ -391,6 +432,11 @@
           if (stores[name]) localStorage.setItem(stores[name].key, JSON.stringify(data));
         });
         if (obj.settings) localStorage.setItem(SETTINGS_KEY, JSON.stringify(obj.settings));
+        if (obj.files && typeof obj.files === 'object') {
+          for (const [k, v] of Object.entries(obj.files)) {
+            if (typeof v === 'string' && v.startsWith('data:image/')) await LO.files.put(k, v);
+          }
+        }
       } else if (obj && obj.v === 2 && Array.isArray(obj.recurring)) {
         LO.frozen = true;
         localStorage.setItem('weekly-planner:v2', JSON.stringify(obj));
@@ -454,7 +500,7 @@
       }
       if (typing || anyDialog || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === 'Escape') { closeMenu(); return; }
-      if (/^[1-6]$/.test(e.key)) { window.location.hash = `#/${NAV[+e.key - 1]}`; return; }
+      if (/^[1-7]$/.test(e.key)) { window.location.hash = `#/${NAV[+e.key - 1]}`; return; }
       const v = views[current];
       if (v && v.keys) v.keys(e);
     });
