@@ -13,6 +13,9 @@
   const KINDS = ['flight', 'train', 'bus', 'car', 'hotel', 'other'];
   const KIND_ICON = { flight: '✈️', train: '🚄', bus: '🚌', car: '🚗', hotel: '🏨', other: '📌' };
   const CATS = ['food', 'transport', 'stay', 'tickets', 'shopping', 'other'];
+  // Sections whose "done" means the same as finishing it on the itinerary ("booked" for a stay does not).
+  const SYNC_SECS = ['spots', 'food', 'photo'];
+  const BOOK_CAT = { flight: 'transport', train: 'transport', bus: 'transport', car: 'transport', hotel: 'stay', other: 'other' };
   const PACK_KITS = ['beach', 'city', 'cold', 'hike', 'flight', 'work'];
   const CURRENCIES = ['USD', 'CNY', 'JPY', 'KRW', 'HKD', 'TWD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'THB', 'MYR', 'VND', 'IDR', 'PHP', 'MXN', 'CHF', 'NZD', 'MOP'];
   const RATE_API = 'https://open.er-api.com/v6/latest/';
@@ -70,7 +73,9 @@
       shareBook: '交通和预订', sharePlan: '每日行程', shareStay: '住宿', shareFood: '想吃的', shareSpots: '想去的',
       // punctuation and editing
       list: (a) => a.join('、'), colon: '：', paren: (s) => `（${s}）`, sep: '，',
-      beforeTrip: '出发前', editItem: '编辑', editPlan: '编辑行程安排', editExp: '编辑花费', day: '哪一天', name: '名称'
+      beforeTrip: '出发前', editItem: '编辑', editPlan: '编辑行程安排', editExp: '编辑花费', day: '哪一天', name: '名称',
+      price: '价格（可不填）', curName: '币种', priceHint: '填了价格会自动记进「花费」，算在出发前。', fromBooking: '来自预订',
+      packReset: '回程清点', packResetDone: '已全部改回没带'
     },
     en: {
       title: 'Travel', sub: 'One page per trip: itinerary, bookings, places, stay, food, packing and spending.',
@@ -118,7 +123,9 @@
       shareConf: 'Include confirmation numbers and addresses', shareSys: 'Share…', with: 'With', daysN: (n) => `${n} days`,
       shareBook: 'Transport and bookings', sharePlan: 'Itinerary', shareStay: 'Stay', shareFood: 'Food to try', shareSpots: 'Places to see',
       list: (a) => a.join(', '), colon: ': ', paren: (s) => ` (${s})`, sep: ' · ',
-      beforeTrip: 'Before the trip', editItem: 'Edit', editPlan: 'Edit plan', editExp: 'Edit expense', day: 'Day', name: 'Name'
+      beforeTrip: 'Before the trip', editItem: 'Edit', editPlan: 'Edit plan', editExp: 'Edit expense', day: 'Day', name: 'Name',
+      price: 'Price (optional)', curName: 'Currency', priceHint: 'A price is added to Money as spending before the trip.', fromBooking: 'From bookings',
+      packReset: 'Pack to go home', packResetDone: 'All unticked for the trip home'
     }
   });
   const t = LO.ns('travel');
@@ -151,13 +158,13 @@
         id: String(b.id || uid()), kind: KINDS.includes(b.kind) ? b.kind : 'other', title: b.title.slice(0, 80),
         date: isKey(b.date) ? b.date : '', time: isTime(b.time) ? b.time : '', endDate: isKey(b.endDate) ? b.endDate : '', endTime: isTime(b.endTime) ? b.endTime : '',
         from: str(b.from).slice(0, 80), to: str(b.to).slice(0, 80), conf: str(b.conf).slice(0, 60), address: str(b.address).slice(0, 200),
-        note: str(b.note).slice(0, 300), link: safeUrl(b.link)
+        note: str(b.note).slice(0, 300), link: safeUrl(b.link), price: num(b.price), pcur: cur(b.pcur, '')
       }));
       const m = x.money || {};
       const money = { home: cur(m.home, 'USD'), local: cur(m.local, cur(m.home, 'USD')), rate: num(m.rate), rateAt: str(m.rateAt), budget: num(m.budget) };
       const expenses = (x.expenses || []).filter((e) => e && typeof e.name === 'string' && num(e.amount) > 0).map((e) => ({
         id: String(e.id || uid()), day: isKey(e.day) ? e.day : '', name: e.name.slice(0, 80), amount: num(e.amount), cur: cur(e.cur, money.home),
-        rate: num(e.rate), rateTo: cur(e.rateTo, ''),
+        rate: num(e.rate), rateTo: cur(e.rateTo, ''), bid: str(e.bid),
         cat: CATS.includes(e.cat) ? e.cat : 'other', paidBy: people.includes(e.paidBy) ? e.paidBy : people[0],
         split: Array.isArray(e.split) ? e.split.filter((p) => people.includes(p)) : people.slice()
       }));
@@ -224,6 +231,26 @@
     if (e.cur === tr.money.local && tr.money.rate > 0) return e.amount * tr.money.rate;
     if (e.rate > 0 && e.rateTo === tr.money.home) return e.amount * e.rate;
     return null;
+  }
+  // Keep the expense made from a booking's price in step with the booking.
+  // Who paid, the split and the day stay as the user set them on the expense.
+  function syncBookingExpense(tr, b) {
+    const e = tr.expenses.find((x) => x.bid === b.id);
+    if (!(b.price > 0)) { if (e) tr.expenses = tr.expenses.filter((x) => x !== e); return; }
+    const fields = { name: b.title, amount: b.price, cur: b.pcur || tr.money.home, cat: BOOK_CAT[b.kind] };
+    if (e) {
+      if (fields.cur !== e.cur) { e.rate = 0; e.rateTo = ''; }
+      Object.assign(e, fields);
+    } else {
+      tr.expenses.push(Object.assign({ id: uid(), bid: b.id, day: '', rate: 0, rateTo: '', paidBy: tr.people[0], split: tr.people.slice() }, fields));
+    }
+  }
+  // Deleting a booking's expense also clears the booking's price, so it is not added back on the next edit.
+  function removeExpense(tr, eid) {
+    const e = tr.expenses.find((x) => x.id === eid);
+    const bk = e && e.bid && tr.bookings.find((z) => z.id === e.bid);
+    if (bk) bk.price = 0;
+    tr.expenses = tr.expenses.filter((x) => x.id !== eid);
   }
   // Before the currencies change, pin each expense that would lose its rate to what it is worth now.
   function freezeRates(tr, next) {
@@ -314,6 +341,8 @@
     const kind0 = b ? b.kind : 'flight';
     const kindOpts = KINDS.map((k) => `<option value="${k}"${k === kind0 ? ' selected' : ''}>${KIND_ICON[k]} ${esc(t('kinds')[k])}</option>`).join('');
     const v = (k) => esc(b ? b[k] : '');
+    const pcur0 = (b && b.pcur) || tr.money.home;
+    const pcurs = Array.from(new Set([tr.money.home, tr.money.local, pcur0]));
     LO.openForm({
       title: b ? t('editBooking') : t('addBooking'),
       body: `<div class="form-row"><label class="fld"><span>${esc(t('kind'))}</span><select class="input" name="bkind">${kindOpts}</select></label>`
@@ -327,6 +356,9 @@
         + `<label class="fld"><span>${esc(t('conf'))}</span><input class="input mono" name="bconf" maxlength="60" autocomplete="off" value="${v('conf')}" placeholder="${esc(t('confPh'))}"></label>`
         + `<label class="fld"><span>${esc(t('address'))}</span><input class="input" name="baddr" maxlength="200" value="${v('address')}"></label>`
         + `<label class="fld"><span>${esc(t('bNote'))}</span><input class="input" name="bnote" maxlength="300" value="${v('note')}" placeholder="${esc(t('bNotePh'))}"></label>`
+        + `<div class="form-row"><label class="fld"><span>${esc(t('price'))}</span><input class="input" type="number" name="bprice" min="0" step="any" inputmode="decimal" value="${b && b.price ? b.price : ''}"></label>`
+        + `<label class="fld"><span>${esc(t('curName'))}</span><select class="input" name="bpcur">${pcurs.map((c) => `<option value="${c}"${c === pcur0 ? ' selected' : ''}>${c}</option>`).join('')}</select></label></div>`
+        + `<p class="hint">${esc(t('priceHint'))}</p>`
         + `<label class="fld"><span>${esc(t('linkPh'))}</span><input class="input" name="blink" maxlength="400" value="${v('link')}"></label>`,
       onOpen(dlg) {
         const sel = $('select[name="bkind"]', dlg);
@@ -351,16 +383,23 @@
         const fields = {
           kind, title, date, time: g('btime'), endDate, endTime: g('bendtime'),
           from: kind === 'hotel' ? '' : g('bfrom'), to: kind === 'hotel' ? '' : g('bto'),
-          conf: g('bconf'), address: g('baddr'), note: g('bnote'), link: safeUrl(g('blink'))
+          conf: g('bconf'), address: g('baddr'), note: g('bnote'), link: safeUrl(g('blink')),
+          price: num(g('bprice')), pcur: g('bpcur')
         };
         LO.mutate(T, (s) => {
           const x = curTrip(s);
-          if (b) Object.assign(x.bookings.find((y) => y.id === bid), fields);
-          else x.bookings.push(Object.assign({ id: uid() }, fields));
+          let y = b && x.bookings.find((z) => z.id === bid);
+          if (y) Object.assign(y, fields);
+          else { y = Object.assign({ id: uid() }, fields); x.bookings.push(y); }
+          syncBookingExpense(x, y);
         }, b ? tc('saved') : tc('added'));
         return true;
       },
-      onDelete: b ? () => LO.mutate(T, (s) => { const x = curTrip(s); x.bookings = x.bookings.filter((y) => y.id !== bid); }, tc('deleted')) : null
+      onDelete: b ? () => LO.mutate(T, (s) => {
+        const x = curTrip(s);
+        x.bookings = x.bookings.filter((y) => y.id !== bid);
+        x.expenses = x.expenses.filter((e) => e.bid !== bid);
+      }, tc('deleted')) : null
     });
   }
 
@@ -502,10 +541,13 @@
           // a frozen rate only holds for the currency it was frozen with
           if (ecur !== y.cur) { y.rate = 0; y.rateTo = ''; }
           Object.assign(y, { name, amount, cur: ecur, cat: g('ecat') || 'other', day: days.length ? g('eday') : y.day, paidBy: g('epaid') || y.paidBy, split: split.length ? split : x.people.slice() });
+          // the booking shows the same price
+          const bk = y.bid && x.bookings.find((z) => z.id === y.bid);
+          if (bk) { bk.price = amount; bk.pcur = ecur; }
         }, tc('saved'));
         return true;
       },
-      onDelete: () => LO.mutate(T, (s) => { const x = curTrip(s); x.expenses = x.expenses.filter((y) => y.id !== eid); }, tc('deleted'))
+      onDelete: () => LO.mutate(T, (s) => removeExpense(curTrip(s), eid), tc('deleted'))
     });
   }
 
@@ -649,6 +691,7 @@
     return `<div class="row pack-tools"><select class="input" data-packkit aria-label="${esc(t('kitPick'))}"><option value="">${esc(t('kitPick'))}</option>`
       + `${PACK_KITS.map((k) => `<option value="${k}">${esc(t('kits')[k])}</option>`).join('')}</select>`
       + (others.length ? `<select class="input" data-packcopy aria-label="${esc(t('copyFrom'))}"><option value="">${esc(t('copyFrom'))}</option>${others.map((x) => `<option value="${esc(x.id)}">${esc(x.dest)}${x.start ? ` · ${esc(LO.shortDate(x.start))}` : ''}</option>`).join('')}</select>` : '')
+      + (tr.sections.pack.some((i) => i.done) ? `<button type="button" class="btn" data-packreset>${esc(t('packReset'))}</button>` : '')
       + '</div>';
   }
 
@@ -704,6 +747,7 @@
         + (b.conf ? `<div class="bk-conf"><small>${esc(t('conf'))}</small><b class="mono">${esc(b.conf)}</b><button type="button" class="btn sm" data-copy="${esc(b.conf)}">${esc(t('copy'))}</button></div>` : '')
         + (b.address ? `<p class="bk-addr">${esc(b.address)} <a class="link" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.address)}" target="_blank" rel="noopener noreferrer">${esc(t('map'))}</a></p>` : '')
         + (b.note ? `<p class="bk-note">${esc(b.note)}</p>` : '')
+        + (b.price ? `<p class="bk-note">${esc(fmtMoney(b.price, b.pcur || tr.money.home))}</p>` : '')
         + '</section>';
     });
     return `${h}</div>`;
@@ -748,7 +792,7 @@
       h += `<ul class="trip-items exp-items">${list.map((e) => {
         const v = toHome(tr, e);
         const when = e.day ? LO.shortDate(e.day) : days.length ? t('beforeTrip') : '';
-        const sub = [t('cats')[e.cat], when, tr.people.length > 1 ? `${e.paidBy} → ${t('list')(e.split.length ? e.split : tr.people)}` : ''].filter(Boolean).join(' · ');
+        const sub = [t('cats')[e.cat], when, e.bid ? t('fromBooking') : '', tr.people.length > 1 ? `${e.paidBy} → ${t('list')(e.split.length ? e.split : tr.people)}` : ''].filter(Boolean).join(' · ');
         return `<li data-eitem="${esc(e.id)}"><div class="ti-body"><b>${esc(e.name)}</b><p>${esc(sub)}</p></div>`
           + `<div class="exp-amts"><b>${esc(fmtMoney(e.amount, e.cur))}</b>${e.cur !== m.home ? `<small>${v == null ? esc(t('noRate')) : `≈ ${esc(fmtMoney(v, m.home))}`}</small>` : ''}</div>`
           + editBtn('data-eedit') + `<button type="button" class="icon-btn sm ghost" data-edel aria-label="${esc(tc('delete'))}">${LO.icon.x}</button></li>`;
@@ -791,6 +835,10 @@
     const be = e.target.closest('[data-bedit]');
     if (be) { openBooking(be.dataset.bedit); return; }
     if (e.target.closest('[data-mset]')) { openMoney(); return; }
+    if (e.target.closest('[data-packreset]')) {
+      LO.mutate(T, (s) => { curTrip(s).sections.pack.forEach((i) => { i.done = false; }); }, t('packResetDone'));
+      return;
+    }
     const ie = e.target.closest('[data-tiedit]');
     if (ie) { openItem(ie.closest('[data-titem]').dataset.titem); return; }
     const pe = e.target.closest('[data-piedit]');
@@ -816,7 +864,7 @@
     const edel = e.target.closest('[data-edel]');
     if (edel) {
       const eid = edel.closest('[data-eitem]').dataset.eitem;
-      LO.mutate(T, (s) => { const tr = curTrip(s); tr.expenses = tr.expenses.filter((x) => x.id !== eid); }, tc('deleted'));
+      LO.mutate(T, (s) => removeExpense(curTrip(s), eid), tc('deleted'));
     }
   });
 
@@ -843,12 +891,24 @@
     }
     if (e.target.matches('[data-pdone]')) {
       const pid = e.target.closest('[data-pitem]').dataset.pitem;
-      LO.mutate(T, (s) => { const p = curTrip(s).plan.find((x) => x.id === pid); p.done = !p.done; });
+      LO.mutate(T, (s) => {
+        const tr = curTrip(s);
+        const p = tr.plan.find((x) => x.id === pid);
+        p.done = !p.done;
+        // the same place stays done while any plan for it is done
+        const any = tr.plan.some((x) => x.name === p.name && x.done);
+        SYNC_SECS.forEach((k) => tr.sections[k].forEach((i) => { if (i.name === p.name) i.done = any; }));
+      });
       return;
     }
     if (!e.target.matches('[data-tdone]')) return;
     const iid = e.target.closest('[data-titem]').dataset.titem;
-    LO.mutate(T, (s) => { const it = curTrip(s).sections[sec].find((i) => i.id === iid); it.done = !it.done; });
+    LO.mutate(T, (s) => {
+      const tr = curTrip(s);
+      const it = tr.sections[sec].find((i) => i.id === iid);
+      it.done = !it.done;
+      if (SYNC_SECS.includes(sec)) tr.plan.forEach((p) => { if (p.name === it.name) p.done = it.done; });
+    });
   });
 
   view.addEventListener('submit', (e) => {

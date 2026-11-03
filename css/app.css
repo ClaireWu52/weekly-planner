@@ -845,6 +845,7 @@ button.stat:hover { border-color: var(--line-2); }
 .settle li:last-child { border-bottom: 0; }
 .pack-tools { margin-bottom: 10px; }
 .pack-tools select { height: 36px; flex: 0 1 auto; width: auto; }
+.pack-tools .btn { height: 36px; }
 .share-opt { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: 14px; }
 .share-text { min-height: 260px; font-size: 13.5px; line-height: 1.6; white-space: pre; overflow: auto; }
 .rate-in { flex: 1; }
