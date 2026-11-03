@@ -2,7 +2,8 @@
  * Travel guides: one page per trip with a day-by-day itinerary, transport and
  * bookings, places to see, where to stay, food, photo spots, a packing list
  * (with templates) and a budget that splits costs between travel mates.
- * Today's plans also show on the Today page, and a trip can be shared as text.
+ * Today's plans also show on the Today page (and the trip a few days before),
+ * each day shows the weather forecast, and a trip can be shared as text or copied.
  */
 (() => {
   'use strict';
@@ -19,7 +20,16 @@
   const PACK_KITS = ['beach', 'city', 'cold', 'hike', 'flight', 'work'];
   const CURRENCIES = ['USD', 'CNY', 'JPY', 'KRW', 'HKD', 'TWD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'THB', 'MYR', 'VND', 'IDR', 'PHP', 'MXN', 'CHF', 'NZD', 'MOP'];
   const RATE_API = 'https://open.er-api.com/v6/latest/';
+  const WX_GEO = 'https://geocoding-api.open-meteo.com/v1/search';
+  const WX_API = 'https://api.open-meteo.com/v1/forecast';
+  const WX_KEY = 'planner:travel:wx';
+  const WX_DAYS = 16;
+  const WX_FRESH = 3 * 3600e3;
+  // Open-Meteo weather codes, grouped
+  const WX_KINDS = [[[0], 'clear', '☀️'], [[1, 2], 'cloudy', '🌤️'], [[3], 'overcast', '☁️'], [[45, 48], 'fog', '🌫️'],
+    [[51, 53, 55, 56, 57], 'drizzle', '🌦️'], [[61, 63, 65, 66, 67, 80, 81, 82], 'rain', '🌧️'], [[71, 73, 75, 77, 85, 86], 'snow', '🌨️'], [[95, 96, 99], 'storm', '⛈️']];
   const MAX_DAYS = 60;
+  const SOON_DAYS = 7;
 
   LO.strings('travel', {
     zh: {
@@ -74,6 +84,10 @@
       // punctuation and editing
       list: (a) => a.join('、'), colon: '：', paren: (s) => `（${s}）`, sep: '，',
       beforeTrip: '出发前', editItem: '编辑', editPlan: '编辑行程安排', editExp: '编辑花费', day: '哪一天', name: '名称',
+      wx: { clear: '晴', cloudy: '多云', overcast: '阴', fog: '雾', drizzle: '小雨', rain: '雨', snow: '雪', storm: '雷雨' }, wxRain: (p) => `降水 ${p}%`, wxSrc: '天气来自 Open-Meteo', wxMiss: (d) => `查不到「${d}」的天气。在目的地后面加上英文名试试，比如「首尔 Seoul」。`,
+      dupTrip: '复制这个行程', dupHint: '复制景点、每日行程、行李清单和预算，不复制预订和花费。', copySuffix: ' 副本',
+      shiftHint: '出发和回来的日期一起改时，每日行程会跟着整体挪过去。',
+      soonCard: (d, n) => `${d} · 还有 ${n} 天出发`, soonPack: (a, b) => `行李还有 ${a} 件没带（共 ${b} 件）`, soonPacked: '行李都带齐了', soonNoBook: '还没有添加交通和住宿。',
       route: '路线', perDay: (m, n) => `每天约 ${m}（${n} 天）`, todayLeft: (m) => `今天还能花 ${m}`, todayOver: (m) => `今天超了 ${m}`,
       price: '价格（可不填）', curName: '币种', priceHint: '填了价格会自动记进「花费」，算在出发前。', fromBooking: '来自预订',
       packReset: '回程清点', packResetDone: '已全部改回没带'
@@ -125,6 +139,10 @@
       shareBook: 'Transport and bookings', sharePlan: 'Itinerary', shareStay: 'Stay', shareFood: 'Food to try', shareSpots: 'Places to see',
       list: (a) => a.join(', '), colon: ': ', paren: (s) => ` (${s})`, sep: ' · ',
       beforeTrip: 'Before the trip', editItem: 'Edit', editPlan: 'Edit plan', editExp: 'Edit expense', day: 'Day', name: 'Name',
+      wx: { clear: 'Clear', cloudy: 'Partly cloudy', overcast: 'Overcast', fog: 'Fog', drizzle: 'Drizzle', rain: 'Rain', snow: 'Snow', storm: 'Thunderstorm' }, wxRain: (p) => `${p}% rain`, wxSrc: 'Weather by Open-Meteo', wxMiss: (d) => `Couldn't find the weather for "${d}". Try adding the English name, e.g. "首尔 Seoul".`,
+      dupTrip: 'Copy this trip', dupHint: 'Copies places, itinerary, packing list and budget, but not bookings or spending.', copySuffix: ' (copy)',
+      shiftHint: 'Changing both dates moves the itinerary along with the trip.',
+      soonCard: (d, n) => `${d} · ${n === 1 ? 'Tomorrow' : `in ${n} days`}`, soonPack: (a, b) => `${a} of ${b} things still to pack`, soonPacked: 'All packed', soonNoBook: 'No transport or stays added yet.',
       route: 'Route', perDay: (m, n) => `About ${m} a day (${n} days)`, todayLeft: (m) => `${m} left for today`, todayOver: (m) => `${m} over today`,
       price: 'Price (optional)', curName: 'Currency', priceHint: 'A price is added to Money as spending before the trip.', fromBooking: 'From bookings',
       packReset: 'Pack to go home', packResetDone: 'All unticked for the trip home'
@@ -220,6 +238,78 @@
     return out.sort(byTime);
   }
 
+  /* ---------------- weather ---------------- */
+  // Forecasts are cached per destination in this browser only; they are refetched after a few hours.
+  const wxCache = (() => { try { return LO.readJSON(WX_KEY) || {}; } catch (_) { return {}; } })();
+  const wxBusy = new Set();
+  const wxFailed = {};
+  const wxSave = () => { try { localStorage.setItem(WX_KEY, JSON.stringify(wxCache)); } catch (_) { /* ignore */ } };
+
+  // Does the trip have any day inside the forecast window?
+  function wxWanted(tr) {
+    if (!tr.start) return false;
+    const today = LO.todayKey();
+    const last = LO.keyOf(LO.addDays(LO.parseKey(today), WX_DAYS - 1));
+    return (tr.end || tr.start) >= today && tr.start <= last;
+  }
+
+  // The geocoder only matches names in the language asked for, and knows fewer Chinese names,
+  // so try the whole name and then each word (e.g. "首尔 Seoul"), in Chinese and in English.
+  async function geocode(dest) {
+    const words = dest.split(/[\s,，、·()（）/]+/).filter(Boolean);
+    const names = Array.from(new Set([dest].concat(words.length > 1 ? words : [])));
+    for (const name of names) {
+      for (const language of ['zh', 'en']) {
+        const d = await (await fetch(`${WX_GEO}?${new URLSearchParams({ name, count: '1', language })}`)).json();
+        const hit = d && d.results && d.results[0];
+        if (hit) return { lat: hit.latitude, lon: hit.longitude };
+      }
+    }
+    return null;
+  }
+
+  async function loadWeather(tr) {
+    const dest = tr.dest.trim();
+    const c = wxCache[dest];
+    if (wxBusy.has(dest) || (c && Date.now() - c.at < WX_FRESH) || Date.now() - (wxFailed[dest] || 0) < 5 * 60e3) return;
+    wxBusy.add(dest);
+    try {
+      let geo = c && c.lat != null ? { lat: c.lat, lon: c.lon } : null;
+      if (!geo) {
+        geo = await geocode(dest);
+        if (!geo) {
+          wxCache[dest] = { at: Date.now(), days: {}, miss: true };
+          wxSave();
+          if (openId === tr.id && sec === 'days') render();
+          return;
+        }
+      }
+      const r = await fetch(`${WX_API}?${new URLSearchParams({
+        latitude: geo.lat, longitude: geo.lon, timezone: 'auto', forecast_days: String(WX_DAYS),
+        daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max'
+      })}`);
+      const d = (await r.json()).daily;
+      if (!d || !Array.isArray(d.time)) throw new Error('no forecast');
+      const days = {};
+      d.time.forEach((k, i) => { days[k] = { c: d.weather_code[i], hi: d.temperature_2m_max[i], lo: d.temperature_2m_min[i], p: d.precipitation_probability_max[i] }; });
+      wxCache[dest] = { lat: geo.lat, lon: geo.lon, at: Date.now(), days };
+      wxSave();
+      if (openId === tr.id && sec === 'days') render();
+    } catch (_) {
+      // offline or the service is down: keep what we had and try again in a few minutes
+      wxFailed[dest] = Date.now();
+    } finally { wxBusy.delete(dest); }
+  }
+
+  function wxHTML(tr, key) {
+    const c = wxCache[tr.dest.trim()];
+    const w = c && c.days && c.days[key];
+    if (!w || w.hi == null) return '';
+    const kind = WX_KINDS.find(([codes]) => codes.includes(w.c)) || [[], 'cloudy', '🌤️'];
+    const rain = w.p != null && w.p >= 20 ? ` · 💧${esc(t('wxRain')(w.p))}` : '';
+    return `<p class="day-wx" title="${esc(t('wxSrc'))}">${kind[2]} ${esc(t('wx')[kind[1]])} ${Math.round(w.hi)}° / ${Math.round(w.lo)}°${rain}</p>`;
+  }
+
   /* ---------------- money ---------------- */
   function fmtMoney(n, code) {
     try {
@@ -302,7 +392,13 @@
         + `<div class="form-row"><label class="fld"><span>${esc(t('start'))}</span><input class="input" type="date" name="tstart" value="${esc(tr ? tr.start : '')}"></label>`
         + `<label class="fld"><span>${esc(t('end'))}</span><input class="input" type="date" name="tend" value="${esc(tr ? tr.end : '')}"></label></div>`
         + `<label class="fld"><span>${esc(t('people'))}</span><input class="input" name="tpeople" maxlength="200" value="${esc(tr ? tr.people.join(', ') : t('me'))}" placeholder="${esc(t('peoplePh'))}"></label>`
-        + `<label class="fld"><span>${esc(t('note'))}</span><textarea class="input ta" name="tnote" rows="3" maxlength="600" placeholder="${esc(t('notePh'))}">${esc(tr ? tr.note : '')}</textarea></label>`,
+        + `<label class="fld"><span>${esc(t('note'))}</span><textarea class="input ta" name="tnote" rows="3" maxlength="600" placeholder="${esc(t('notePh'))}">${esc(tr ? tr.note : '')}</textarea></label>`
+        + (tr && tr.plan.length ? `<p class="hint">${esc(t('shiftHint'))}</p>` : '')
+        + (tr ? `<button type="button" class="btn sm" data-tdup>${esc(t('dupTrip'))}</button><p class="hint">${esc(t('dupHint'))}</p>` : ''),
+      onOpen(dlg) {
+        const b = $('[data-tdup]', dlg);
+        if (b) b.addEventListener('click', () => { LO.closeForm(); duplicateTrip(id); });
+      },
       onSave(dlg) {
         const dest = $('input[name="tdest"]', dlg).value.trim();
         if (!dest) return t('errDest');
@@ -316,6 +412,12 @@
         LO.mutate(T, (s) => {
           if (tr) {
             const x = s.trips.find((y) => y.id === id);
+            // moving the trip (both ends change) moves the itinerary with it;
+            // changing only the start just makes the trip longer or shorter
+            if (x.start && start && start !== x.start && end !== x.end) {
+              const shift = LO.dayDiff(x.start, start);
+              x.plan.forEach((p) => { p.day = LO.keyOf(LO.addDays(LO.parseKey(p.day), shift)); });
+            }
             Object.assign(x, fields);
             // keep spending consistent with the new list of people
             x.expenses.forEach((e) => {
@@ -335,6 +437,22 @@
       },
       onDelete: tr ? () => { openId = null; LO.mutate(T, (s) => { s.trips = s.trips.filter((x) => x.id !== id); }, tc('deleted')); } : null
     });
+  }
+
+  // A fresh copy of a trip to go again or start from: same places, plans, packing and budget,
+  // nothing ticked, and no bookings or spending.
+  function duplicateTrip(id) {
+    const src = T.s.trips.find((x) => x.id === id);
+    if (!src) return;
+    const copy = JSON.parse(JSON.stringify(src));
+    Object.assign(copy, { id: uid(), dest: `${src.dest}${t('copySuffix')}`.slice(0, 40), bookings: [], expenses: [] });
+    SECTIONS.forEach((k) => copy.sections[k].forEach((i) => { i.id = uid(); i.done = false; }));
+    copy.plan.forEach((p) => { p.id = uid(); p.done = false; });
+    LO.mutate(T, (s) => { s.trips.push(copy); }, tc('added'));
+    openId = copy.id;
+    sec = 'days';
+    render();
+    window.scrollTo(0, 0);
   }
 
   function openBooking(bid) {
@@ -702,15 +820,21 @@
     if (!days.length) return `<section class="card trip-sec"><p class="empty-note">${esc(t('noDates'))}</p></section>`;
     const today = LO.todayKey();
     const q = (name) => encodeURIComponent(`${name} ${tr.dest}`);
+    let h0 = '';
+    if (wxWanted(tr)) {
+      loadWeather(tr);
+      const c = wxCache[tr.dest.trim()];
+      if (c && c.miss) h0 = `<p class="hint">${esc(t('wxMiss')(tr.dest))}</p>`;
+    }
     const picks = Array.from(new Set(['spots', 'food', 'stay', 'photo'].flatMap((k) => tr.sections[k].map((i) => i.name))));
-    let h = `<datalist id="tripPicks">${picks.map((n) => `<option value="${esc(n)}"></option>`).join('')}</datalist>`;
+    let h = `${h0}<datalist id="tripPicks">${picks.map((n) => `<option value="${esc(n)}"></option>`).join('')}</datalist>`;
     days.forEach(({ key, n }) => {
       const items = tr.plan.filter((p) => p.day === key).sort(byTime);
       const books = bookingLines(tr, key);
       h += `<section class="card trip-sec trip-day${key === today ? ' is-today' : ''}"><header class="card-head"><h2>${esc(n ? t('dayLabel')(n, key) : t('offDay')(key))}`
         + `${key === today ? `<span class="badge live">${esc(tc('today'))}</span>` : ''}</h2>`
         + `${items.length > 1 ? `<a class="btn sm ghost day-route" href="${esc(routeUrl(tr, items))}" target="_blank" rel="noopener noreferrer">${esc(t('route'))}</a>` : ''}`
-        + `${items.length ? `<span class="count">${items.filter((p) => p.done).length}/${items.length}</span>` : ''}</header>`;
+        + `${items.length ? `<span class="count">${items.filter((p) => p.done).length}/${items.length}</span>` : ''}</header>${wxHTML(tr, key)}`;
       if (books.length) {
         h += `<ul class="day-books">${books.map((b) => `<li><span class="plan-time">${esc(b.time)}</span><span class="db-name">${b.icon} ${esc(b.name)}</span>`
           + `${b.conf ? `<button type="button" class="conf-chip mono" data-copy="${esc(b.conf)}" title="${esc(t('copy'))}">${esc(b.conf)}</button>` : ''}</li>`).join('')}</ul>`;
@@ -1002,6 +1126,17 @@
       if (!tr) return null;
       const books = bookingLines(tr, k).map((b) => ({ time: b.time, name: `${b.icon} ${b.name}`, note: b.conf, done: false }));
       return { id: tr.id, dest: tr.dest, n: dayNum(tr, k), items: books.concat(tr.plan.filter((p) => p.day === k)).sort(byTime) };
+    },
+    // The next trip starting within a week, with its first bookings and how much is still unpacked.
+    soon() {
+      const k = LO.todayKey();
+      const tr = T.s.trips.filter((x) => x.start > k && LO.dayDiff(k, x.start) <= SOON_DAYS).sort((a, b) => (a.start < b.start ? -1 : 1))[0];
+      if (!tr) return null;
+      const items = tr.bookings.filter((b) => b.date >= k).sort(byWhen).slice(0, 3).map((b) => ({
+        time: LO.shortDate(b.date), name: `${KIND_ICON[b.kind]} ${b.time ? b.time + ' ' : ''}${b.title}`, note: b.conf
+      }));
+      const pack = tr.sections.pack;
+      return { id: tr.id, dest: tr.dest, n: LO.dayDiff(k, tr.start), items, packLeft: pack.filter((i) => !i.done).length, packTotal: pack.length };
     },
     show(id) { openId = id; sec = 'days'; LO.go('travel'); render(); },
     // Trips and bookings from today on, for the calendar export. Times are minutes after midnight, or null for all-day.

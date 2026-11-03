@@ -183,12 +183,25 @@
 
   function tripCard() {
     const tr = LO.travel && LO.travel.today();
-    if (!tr) return '';
+    if (!tr) return soonCard();
     const tt = LO.ns('travel');
     const items = tr.items.map((p) => `<li class="ev-line cat-life${p.done ? ' is-past' : ''}"><span class="ev-time">${esc(p.time || '·')}</span>`
       + `<span class="ev-info"><b>${esc(p.name)}</b>${p.note ? `<small>${esc(p.note)}</small>` : ''}</span></li>`).join('');
     return `<section class="card o2 trip-today"><header class="card-head"><h2>${esc(tt('todayCard')(tr.dest, tr.n))}</h2><button type="button" class="link link-btn" data-opentrip="${esc(tr.id)}">${esc(tt('openTrip'))}</button></header>`
       + (items ? `<ul class="timeline">${items}</ul>` : `<p class="empty-note">${esc(tt('todayEmpty'))}</p>`) + '</section>';
+  }
+
+  // A trip starting within the week: first bookings and packing left.
+  function soonCard() {
+    const tr = LO.travel && LO.travel.soon();
+    if (!tr) return '';
+    const tt = LO.ns('travel');
+    const items = tr.items.map((p) => `<li class="ev-line cat-life"><span class="ev-time">${esc(p.time)}</span>`
+      + `<span class="ev-info"><b>${esc(p.name)}</b>${p.note ? `<small>${esc(p.note)}</small>` : ''}</span></li>`).join('');
+    const pack = tr.packTotal ? (tr.packLeft ? tt('soonPack')(tr.packLeft, tr.packTotal) : tt('soonPacked')) : '';
+    return `<section class="card o2 trip-today"><header class="card-head"><h2>${esc(tt('soonCard')(tr.dest, tr.n))}</h2><button type="button" class="link link-btn" data-opentrip="${esc(tr.id)}">${esc(tt('openTrip'))}</button></header>`
+      + (items ? `<ul class="timeline">${items}</ul>` : `<p class="empty-note">${esc(tt('soonNoBook'))}</p>`)
+      + (pack ? `<p class="hint trip-soon-pack">🧳 ${esc(pack)}</p>` : '') + '</section>';
   }
 
   function focusCard() {

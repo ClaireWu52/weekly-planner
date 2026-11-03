@@ -801,6 +801,8 @@ button.stat:hover { border-color: var(--line-2); }
 .trip-day { margin-bottom: 12px; }
 .trip-day.is-today { border-color: var(--life-bar); }
 .trip-day .day-route { margin-left: auto; color: var(--focus); text-decoration: none; }
+.day-wx { margin: -6px 0 10px; font-size: 13.5px; color: var(--muted); }
+.trip-soon-pack { margin: 10px 0 0; }
 .plan-time { width: 46px; flex: none; padding-top: 1px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .plan-add { margin: 10px 0 0; }
 .plan-add .plan-time-in { flex: 0 0 116px; }
