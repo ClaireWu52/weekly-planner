@@ -803,6 +803,14 @@ button.stat:hover { border-color: var(--line-2); }
 .trip-day .day-route { margin-left: auto; color: var(--focus); text-decoration: none; }
 .day-wx { margin: -6px 0 10px; font-size: 13.5px; color: var(--muted); }
 .trip-soon-pack { margin: 10px 0 0; }
+.drag-handle { flex: none; align-self: center; width: 22px; height: 30px; margin: 0 -4px 0 -6px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); font-size: 14px; letter-spacing: -3px; cursor: grab; touch-action: none; opacity: .75; }
+.drag-handle:hover, .drag-handle:focus-visible { opacity: 1; background: var(--hover); }
+.drag-gap { flex: none; width: 22px; margin: 0 -4px 0 -6px; }
+.trip-items li.is-dragging { position: relative; z-index: 1; background: var(--surface); box-shadow: 0 6px 18px rgba(0, 0, 0, .12); border-radius: 8px; }
+.trip-items li.is-dragging .drag-handle { cursor: grabbing; }
+.pack-grp { display: flex; align-items: center; gap: 8px; margin: 14px 0 0; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+.pack-grp .count { font-weight: 500; }
+.pack-grp-in { flex: 0 1 140px !important; }
 .plan-time { width: 46px; flex: none; padding-top: 1px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .plan-add { margin: 10px 0 0; }
 .plan-add .plan-time-in { flex: 0 0 116px; }
