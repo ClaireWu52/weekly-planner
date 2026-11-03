@@ -25,6 +25,7 @@ const SHELL = [
   'js/task-calc.js',
   'js/tasks.js',
   'js/health.js',
+  'js/health-workout.js',
   'js/plan.js',
   'js/learn.js',
   'js/records.js',
