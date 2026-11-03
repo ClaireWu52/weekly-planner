@@ -38,6 +38,7 @@ const SHELL = [
   'js/travel-weather.js',
   'js/travel-share.js',
   'js/review.js',
+  'js/ics-parse.js',
   'js/calendar.js',
   'js/sync.js',
   'js/today.js'

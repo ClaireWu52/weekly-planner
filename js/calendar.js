@@ -2,6 +2,8 @@
  * Export to calendar: builds an .ics file with the weekly schedule (as
  * repeating events), one-off events, to-do deadlines and trip bookings, with reminders,
  * so the phone's own calendar can send notifications.
+ * Also imports a calendar file (for example the class schedule from the school's
+ * system or Google Calendar) into the schedule, after showing what it will add.
  */
 (() => {
   'use strict';
@@ -20,7 +22,12 @@
       howTitle: '怎么导入',
       how: ['iPhone：用 Safari 打开网站，下载后点开文件，选“全部添加”。', 'Google 日历：在电脑上打开 calendar.google.com → 设置 → 导入和导出 → 选这个文件。建议先新建一个叫“我的计划本”的日历，导入到它里面。', 'Mac：双击下载的文件，用“日历”打开。'],
       reimport: '课表改了以后要重新导出。重新导入前，先删掉上次导入的那个日历，免得重复。',
-      download: '下载日历文件', none: '没有可以导出的内容。', done: (n) => `已导出 ${n} 个日程`, due: (x) => `截止：${x}`
+      download: '下载日历文件', none: '没有可以导出的内容。', done: (n) => `已导出 ${n} 个日程`, due: (x) => `截止：${x}`,
+      impTitle: '从日历导入课表', impPick: '选一个日历文件（.ics）。学校选课系统、Google 日历、Outlook 都能导出这种文件。',
+      impFound: (w, o) => `找到 ${w} 门每周课程${o ? `、${o} 个单次安排` : ''}。`, impSkipped: (a, x) => [a ? `${a} 个全天事件（比如假期）` : '', x ? `${x} 个按月或按年重复的事件` : ''].filter(Boolean).join('、') + '没有导入。',
+      impWeekly: '每周', impOnce: '单次', impMore: (n) => `还有 ${n} 个…`, impCat: '导入成哪一类', impNote: '时间按文件里写的导入。如果日历用的是别的时区，导入后看一下时间对不对。导入后可以撤销。',
+      impGo: '导入', impNone: '这个文件里没有可以导入的课程或安排。', impBad: '这个文件读不出来，换一个 .ics 文件试试。',
+      impDone: (o) => (o.weekly || o.once ? `已导入 ${[o.weekly ? `${o.weekly} 门每周课程` : '', o.once ? `${o.once} 个单次安排` : ''].filter(Boolean).join('、')}` : '这些都已经在课表里了')
     },
     en: {
       title: 'Export to calendar', intro: 'Creates a calendar file (.ics). Import it into your phone or computer calendar and you will get reminders for classes and deadlines.',
@@ -32,7 +39,12 @@
       howTitle: 'How to import',
       how: ['iPhone: open the site in Safari, download, tap the file and choose "Add All".', 'Google Calendar: on a computer open calendar.google.com, Settings, Import & export, and pick the file. It helps to create a calendar called "My Planner" first and import into it.', 'Mac: double-click the downloaded file to open it in Calendar.'],
       reimport: 'Export again after changing your schedule. Before importing again, delete the calendar you imported last time to avoid duplicates.',
-      download: 'Download calendar file', none: 'Nothing to export.', done: (n) => `Exported ${n} events`, due: (x) => `Due: ${x}`
+      download: 'Download calendar file', none: 'Nothing to export.', done: (n) => `Exported ${n} events`, due: (x) => `Due: ${x}`,
+      impTitle: 'Import from a calendar', impPick: "Pick a calendar file (.ics). Your school's course system, Google Calendar and Outlook can all export one.",
+      impFound: (w, o) => `Found ${w} weekly class${w === 1 ? '' : 'es'}${o ? ` and ${o} one-off event${o === 1 ? '' : 's'}` : ''}.`, impSkipped: (a, x) => `Not imported: ${[a ? `${a} all-day event${a === 1 ? '' : 's'} (like holidays)` : '', x ? `${x} monthly or yearly event${x === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ')}.`,
+      impWeekly: 'Weekly', impOnce: 'Once', impMore: (n) => `${n} more…`, impCat: 'Import as', impNote: "Times are imported as written. If the calendar is in another time zone, check them afterwards. You can undo the import.",
+      impGo: 'Import', impNone: 'Nothing in this file can go on the schedule.', impBad: "Couldn't read this file. Try another .ics file.",
+      impDone: (o) => (o.weekly || o.once ? `Imported ${[o.weekly ? `${o.weekly} weekly class${o.weekly === 1 ? '' : 'es'}` : '', o.once ? `${o.once} one-off event${o.once === 1 ? '' : 's'}` : ''].filter(Boolean).join(' and ')}` : 'All of these are already on the schedule')
     }
   });
   const t = LO.ns('calendar');
@@ -169,5 +181,46 @@
     });
   }
 
-  LO.calendar = { open, build };
+  /* ---------------- import ---------------- */
+  const CATS = ['class', 'study', 'work', 'meeting', 'health', 'life', 'other'];
+  const hm = (m) => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
+  function openImport() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.ics,text/calendar';
+    input.addEventListener('change', async () => {
+      const f = input.files && input.files[0];
+      if (!f) return;
+      let data;
+      try { data = LO.icsParse(await f.text()); } catch (_) { LO.toast(t('impBad')); return; }
+      showImport(data);
+    });
+    input.click();
+  }
+  function showImport(data) {
+    const { weekly, once, skipped } = data;
+    if (!weekly.length && !once.length) { LO.toast(t('impNone')); return; }
+    const days = LO.t('common.days');
+    const sep = LO.lang() === 'zh' ? '、' : ', ';
+    const rows = weekly.map((x) => [t('impWeekly'), x.title, `${x.days.map((d) => days[d]).join(sep)} ${hm(x.start)}–${hm(x.end)}`, x.place])
+      .concat(once.map((x) => [t('impOnce'), x.title, `${LO.shortDate(x.date)} ${hm(x.start)}–${hm(x.end)}`, x.place]));
+    const shown = rows.slice(0, 10);
+    const skip = skipped.allDay || skipped.other ? `<p class="hint">${esc(t('impSkipped')(skipped.allDay, skipped.other))}</p>` : '';
+    LO.openForm({
+      title: t('impTitle'),
+      saveLabel: t('impGo'),
+      body: `<p>${esc(t('impFound')(weekly.length, once.length))}</p>${skip}`
+        + `<ul class="imp-list">${shown.map(([k, title, when, place]) => `<li><span class="imp-kind">${esc(k)}</span><b>${esc(title)}</b><span class="hint">${esc(when)}${place ? ` · ${esc(place)}` : ''}</span></li>`).join('')}`
+        + `${rows.length > shown.length ? `<li class="hint">${esc(t('impMore')(rows.length - shown.length))}</li>` : ''}</ul>`
+        + `<div class="fld"><span>${esc(t('impCat'))}</span><div class="chips">${LO.chips('impcat', CATS.map((c) => [c, esc(LO.t('planner.cats.' + c))]), 'radio', ['class'])}</div></div>`
+        + `<p class="hint">${esc(t('impNote'))}</p>`,
+      onSave(dlg) {
+        LO.planner.importCalendar(data, LO.checkedVal(dlg, 'impcat') || 'class', t('impDone'));
+        LO.go('schedule');
+        return true;
+      }
+    });
+  }
+
+  LO.calendar = { open, build, openImport };
 })();

@@ -426,6 +426,10 @@ button.stat:hover { border-color: var(--line-2); }
 .focus.compact .btn { margin-left: auto; align-self: center; }
 .focus.compact .hint { flex-basis: 100%; }
 .today-quiet { margin: 18px 0 0; text-align: center; }
+.imp-list { list-style: none; margin: 10px 0 14px; padding: 0; max-height: 260px; overflow-y: auto; border-top: 1px solid var(--line); }
+.imp-list li { display: grid; grid-template-columns: auto 1fr; gap: 0 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.imp-list .hint { grid-column: 2; margin: 0; }
+.imp-kind { grid-row: span 2; align-self: start; padding: 1px 7px; border-radius: 999px; background: var(--seg); color: var(--muted); font-size: 12px; }
 .review-nudge { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 14px 16px; }
 .review-nudge div { flex: 1; min-width: 0; }
 .review-nudge b { display: block; font-size: 15px; }

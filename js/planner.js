@@ -1191,6 +1191,46 @@
     raw: () => state,
     raw: () => state,
     weekEventsOf: (date) => weekEvents(keyOf(mondayOf(date))),
+    // Adds what LO.icsParse read from a calendar file. Weekly entries become repeating
+    // events (one group per class), their skipped days become "skip this week", and
+    // one-offs go into their own week. Anything already on the schedule at the same
+    // day and time with the same name is left out. Returns how many were added.
+    importCalendar(data, cat, msg) {
+      const out = { weekly: 0, once: 0 };
+      const toKey = (k) => keyOf(mondayOf(LO.parseKey(k)));
+      const same = (a, b) => a.title === b.title && a.day === b.day && a.start === b.start && a.end === b.end;
+      mutate(() => {
+        data.weekly.forEach((x) => {
+          const gid = 'g' + uid();
+          const made = {};
+          x.days.forEach((day) => {
+            const e = cleanEvent({ id: uid(), title: x.title, cat, day, start: x.start, end: x.end, place: x.place, note: x.note, from: x.from, until: x.until, group: gid });
+            if (state.recurring.some((r) => same(r, e))) return;
+            state.recurring.push(e);
+            made[day] = e.id;
+          });
+          if (!Object.keys(made).length) return;
+          out.weekly++;
+          (x.except || []).forEach((k) => {
+            const id = made[LO.wd(LO.parseKey(k))];
+            const w = id && week(toKey(k), true);
+            if (w && !w.skipped.includes(id)) w.skipped.push(id);
+          });
+        });
+        data.once.forEach((x) => {
+          const day = LO.wd(LO.parseKey(x.date));
+          const e = cleanEvent({ id: uid(), title: x.title, cat, day, start: x.start, end: x.end, place: x.place, note: x.note });
+          const w = week(toKey(x.date), true);
+          if (w.added.some((a) => same(a, e))) return;
+          w.added.push(e);
+          out.once++;
+        });
+      });
+      if (!out.weekly && !out.once) undoStack.pop(); // nothing changed, so nothing to undo
+      // the message needs the counts, so it's shown once the import has run
+      if (msg) LO.toast(msg(out), out.weekly || out.once ? [{ label: t('undo'), run: undo }] : []);
+      return out;
+    },
     addWeekEvents(date, items) {
       // items: [{ day, start, end, title, place, cat, note }] added as this-week-only events
       const key = keyOf(mondayOf(date));
