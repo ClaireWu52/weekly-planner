@@ -1,11 +1,12 @@
 /*
  * Service worker: lets the planner open without a network.
- * Site files are fetched from the network first (so updates and the daily
- * news show up right away) and fall back to the cached copy when offline.
+ * Site files are fetched from the network first, always asking the server
+ * whether they changed (GitHub Pages lets browsers keep files for 10 minutes,
+ * which would hide updates), and fall back to the cached copy when offline.
  * Google Fonts are served from cache and refreshed in the background.
  * Anything else (GitHub sync, news links) is left to the browser.
  */
-const CACHE = 'planner-v1';
+const CACHE = 'planner-v2';
 const SHELL = [
   './',
   'index.html',
@@ -54,7 +55,7 @@ self.addEventListener('fetch', (e) => {
 
   if (url.origin === self.location.origin) {
     e.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-cache' })
         .then((res) => {
           if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); }
           return res;
