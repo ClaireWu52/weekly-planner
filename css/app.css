@@ -429,6 +429,10 @@ button.stat:hover { border-color: var(--line-2); }
 .ft-course select { max-width: 200px; height: 30px; font-size: 13px; }
 .focus.compact .ft-course { flex-basis: 100%; margin-top: 4px; }
 .today-quiet { margin: 18px 0 0; text-align: center; }
+.streak-pill { display: inline-block; margin-top: 8px; padding: 3px 10px; border-radius: 999px; background: var(--seg); color: var(--muted); font-size: 13px; text-decoration: none; }
+.streak-pill.is-on { background: var(--health-bg); color: var(--health-ink); font-weight: 600; }
+.streak-pill.is-on::before { content: "🔥 "; }
+.streak-pill:hover { text-decoration: underline; text-underline-offset: 3px; }
 .imp-list { list-style: none; margin: 10px 0 14px; padding: 0; max-height: 260px; overflow-y: auto; border-top: 1px solid var(--line); }
 .imp-list li { display: grid; grid-template-columns: auto 1fr; gap: 0 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
 .imp-list .hint { grid-column: 2; margin: 0; }

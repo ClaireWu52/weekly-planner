@@ -21,7 +21,9 @@
       sessions: (n, m) => `今天专注了 ${n} 次，共 ${m} 分钟`, workDone: '专注完成，休息一下吧', workDoneFor: (c) => `专注完成，已记到「${c}」。休息一下吧`, focusOn: '专注在', noCourse: '不选课程', breakDone: '休息结束，可以开始下一轮了',
       startBreak: '开始休息', focusing: '专注中', resting: '休息中', length: '时长',
       news: '今日新闻', moreNews: '全部新闻',
-      month: '本月重点', openPlan: '全年目标', streak: (g, n) => `${g}。已经连续活跃 ${n} 天了`,
+      month: '本月重点', openPlan: '全年目标',
+      streakOn: (n) => `连续活跃 ${n} 天`, streakBest: '，最长纪录', streakKeep: (n) => `已经连续 ${n} 天了，今天做完一件事就能接上`,
+      streakTip: '完成待办或每日任务、记运动、专注、读完书、写成长记录，都算活跃。',
       timerMore: '展开', timerLess: '收起',
       quiet: '这些还没有内容，先收起来了：', quietTail: '。有内容后会自动出现。'
     },
@@ -38,7 +40,9 @@
       sessions: (n, m) => `${n} sessions today, ${m} min`, workDone: 'Session done. Take a break.', workDoneFor: (c) => `Session done and added to "${c}". Take a break.`, focusOn: 'Focusing on', noCourse: 'No course', breakDone: 'Break over. Ready for the next one.',
       startBreak: 'Start break', focusing: 'Focusing', resting: 'On break', length: 'Length',
       news: "Today's news", moreNews: 'All news',
-      month: 'This month', openPlan: 'Yearly goals', streak: (g, n) => `${g}. ${n}-day streak`,
+      month: 'This month', openPlan: 'Yearly goals',
+      streakOn: (n) => `${n}-day streak`, streakBest: ', your longest', streakKeep: (n) => `${n}-day streak. Do one thing today to keep it going`,
+      streakTip: 'Finishing a to-do or daily, logging a workout, a focus session, finishing a book or a growth log entry all count.',
       timerMore: 'More', timerLess: 'Less',
       quiet: 'Tucked away until they have something in them: ', quietTail: '.'
     }
@@ -345,10 +349,15 @@
 
   function render() {
     const now = new Date();
-    const streak = LO.records ? LO.records.streak() : 0;
+    const st = LO.records ? LO.records.streakInfo() : { cur: 0 };
     const greet = t('greet')(now.getHours());
+    // the streak: counted once today has some activity, otherwise a nudge to keep it
+    const streak = st.cur < 2 ? '' : st.today
+      ? `${t('streakOn')(st.cur)}${st.cur >= 3 && st.cur >= st.best ? t('streakBest') : ''}`
+      : t('streakKeep')(st.cur);
     quiet = [];
-    let h = `<div class="view-head"><div><h1>${esc(LO.dateLine(now))}</h1><p class="sub">${esc(streak >= 2 ? t('streak')(greet.replace(/[。.]$/, ''), streak) : greet)}</p></div></div>`;
+    let h = `<div class="view-head"><div><h1>${esc(LO.dateLine(now))}</h1><p class="sub">${esc(greet)}</p>`
+      + (streak ? `<a class="streak-pill${st.today ? ' is-on' : ''}" href="#/growth/records" title="${esc(t('streakTip'))}">${esc(streak)}</a>` : '') + '</div></div>';
     if (LO.review) h += LO.review.nudgeHTML();
     h += '<div class="today-grid">';
     h += `<div class="tcol-a">${tripCard()}${card('schedule')}${card('timer')}</div>`;

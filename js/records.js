@@ -279,6 +279,12 @@
   LO.records = {
     store: R,
     since: (k) => R.s.records.filter((r) => r.date >= k).length,
-    streak: () => streaks(activityMap()).cur
+    streak: () => streaks(activityMap()).cur,
+    // for the Today page: the streak, the longest one, and whether today counts yet
+    streakInfo() {
+      const map = activityMap();
+      const st = streaks(map);
+      return { cur: st.cur, best: st.best, today: pick(map[LO.todayKey()], 'all') > 0 };
+    }
   };
 })();
