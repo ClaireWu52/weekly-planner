@@ -1131,6 +1131,25 @@
     persist();
     renderGrid();
   });
+  // Day view (phones): swipe left or right on the timetable for the next or previous day.
+  // A swipe never starts a drag: touch drags give way as soon as the finger moves.
+  let swipe = null;
+  gridEl.addEventListener('touchstart', (e) => {
+    swipe = viewMode === 'day' && e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() } : null;
+  }, { passive: true });
+  gridEl.addEventListener('touchend', (e) => {
+    if (!swipe) return;
+    const p = e.changedTouches[0];
+    const dx = p.clientX - swipe.x;
+    const dy = p.clientY - swipe.y;
+    const quick = Date.now() - swipe.t < 700;
+    swipe = null;
+    if (!quick || Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    goWeek(dx < 0 ? 1 : -1);
+    const g = gridEl.firstElementChild;
+    if (g) g.classList.add(dx < 0 ? 'slide-l' : 'slide-r');
+  }, { passive: true });
+
   $('#prevWeek').addEventListener('click', () => goWeek(-1));
   $('#nextWeek').addEventListener('click', () => goWeek(1));
   $('#thisWeek').addEventListener('click', () => goWeek(0));

@@ -204,7 +204,13 @@ main { padding: 18px clamp(14px, 3vw, 32px) 40px; }
 .grid-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .grid-scroll { overflow-x: auto; }
 .grid { min-width: 760px; user-select: none; -webkit-user-select: none; }
-.grid.is-day { min-width: 0; }
+.grid.is-day { min-width: 0; touch-action: pan-y; }
+/* day view: the new day slides in from the side it was swiped toward */
+.grid .slide-l { animation: slide-in-l .18s ease-out; }
+.grid .slide-r { animation: slide-in-r .18s ease-out; }
+@keyframes slide-in-l { from { transform: translateX(28px); opacity: .4; } }
+@keyframes slide-in-r { from { transform: translateX(-28px); opacity: .4; } }
+@media (prefers-reduced-motion: reduce) { .grid .slide-l, .grid .slide-r { animation: none; } }
 .lg-btn { border: 0; background: transparent; padding: 2px 4px; border-radius: 6px; color: inherit; font: inherit; cursor: pointer; }
 .lg-btn:hover { background: var(--hover); }
 .lg-btn.off { opacity: .45; text-decoration: line-through; }
