@@ -4,6 +4,7 @@
  * and a budget that splits costs between travel mates.
  * Today's plans also show on the Today page (and the trip a few days before).
  *
+ * travel-calc.js (loaded first) has the calculations, kept apart so they can be tested.
  * This file holds the data, all the travel strings, the trip list, the itinerary
  * and the places/stay/food/photo lists. The other parts live in travel-book.js,
  * travel-money.js, travel-pack.js, travel-weather.js and travel-share.js, which
@@ -267,12 +268,9 @@
         LO.mutate(T, (s) => {
           if (tr) {
             const x = s.trips.find((y) => y.id === id);
-            // moving the trip (both ends change) moves the itinerary with it;
-            // changing only the start just makes the trip longer or shorter
-            if (x.start && start && start !== x.start && end !== x.end) {
-              const shift = LO.dayDiff(x.start, start);
-              x.plan.forEach((p) => { p.day = LO.keyOf(LO.addDays(LO.parseKey(p.day), shift)); });
-            }
+            // moving the whole trip moves the itinerary with it (see planShift in travel-calc.js)
+            const shift = LO.tripCalc.planShift(x, { start, end });
+            if (shift) x.plan.forEach((p) => { p.day = LO.keyOf(LO.addDays(LO.parseKey(p.day), shift)); });
             Object.assign(x, fields);
             // keep spending consistent with the new list of people
             x.expenses.forEach((e) => {
@@ -495,11 +493,7 @@
     LO.mutate(T, (s) => {
       const tr = curTrip(s);
       const key = ul.dataset.sort === 'plan' ? null : sec;
-      const arr = key ? tr.sections[key] : tr.plan;
-      const slots = [];
-      arr.forEach((x, i) => { if (ids.includes(x.id)) slots.push(i); });
-      const moved = ids.map((id) => arr.find((x) => x.id === id));
-      slots.forEach((slot, i) => { arr[slot] = moved[i]; });
+      LO.tripCalc.reorder(key ? tr.sections[key] : tr.plan, ids);
     });
   }
   view.addEventListener('pointerdown', (e) => {

@@ -9,6 +9,7 @@
   const { $, esc, uid } = LO;
   const K = LO.tripKit;
   const { T, t, tc, view, CATS, num, curTrip, tripDays, editBtn } = K;
+  const { toHome, freezeRates, settleUp, dailyBudget } = LO.tripCalc;
   const CURRENCIES = ['USD', 'CNY', 'JPY', 'KRW', 'HKD', 'TWD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'THB', 'MYR', 'VND', 'IDR', 'PHP', 'MXN', 'CHF', 'NZD', 'MOP'];
   const RATE_API = 'https://open.er-api.com/v6/latest/';
   const BOOK_CAT = { flight: 'transport', train: 'transport', bus: 'transport', car: 'transport', hotel: 'stay', other: 'other' };
@@ -22,59 +23,12 @@
       return new Intl.NumberFormat(LO.lang() === 'zh' ? 'zh-CN' : 'en-US', { style: 'currency', currency: code, maximumFractionDigits: Math.abs(n) >= 1000 || n % 1 === 0 ? 0 : 2 }).format(n);
     } catch (_) { return `${LO.round1(n)} ${code}`; }
   }
-  // Value of an expense in the home currency, or null when no rate is set for it.
-  // Expenses in a currency the trip no longer uses keep the rate they were frozen at.
-  function toHome(tr, e) {
-    if (e.cur === tr.money.home) return e.amount;
-    if (e.cur === tr.money.local && tr.money.rate > 0) return e.amount * tr.money.rate;
-    if (e.rate > 0 && e.rateTo === tr.money.home) return e.amount * e.rate;
-    return null;
-  }
-
   // Deleting a booking's expense also clears the booking's price, so it is not added back on the next edit.
   function removeExpense(tr, eid) {
     const e = tr.expenses.find((x) => x.id === eid);
     const bk = e && e.bid && tr.bookings.find((z) => z.id === e.bid);
     if (bk) bk.price = 0;
     tr.expenses = tr.expenses.filter((x) => x.id !== eid);
-  }
-  // Before the currencies change, pin each expense that would lose its rate to what it is worth now.
-  function freezeRates(tr, next) {
-    const oldHome = tr.money.home;
-    // one unit of the old home currency in the new one
-    const homeToNew = next.home === oldHome ? 1 : next.home === tr.money.local && tr.money.rate > 0 ? 1 / tr.money.rate : 0;
-    tr.expenses.forEach((e) => {
-      if (e.cur === next.home || (e.cur === next.local && next.rate > 0)) return;
-      const v = toHome(tr, e);
-      if (v == null || !homeToNew) return;
-      e.rate = v / e.amount * homeToNew;
-      e.rateTo = next.home;
-    });
-  }
-  // Who pays whom so everyone ends up even (greedy: biggest debtor pays biggest creditor).
-  function settleUp(tr) {
-    const bal = Object.fromEntries(tr.people.map((p) => [p, 0]));
-    tr.expenses.forEach((e) => {
-      const v = toHome(tr, e);
-      const split = e.split.length ? e.split : tr.people;
-      if (v == null || !(e.paidBy in bal)) return;
-      bal[e.paidBy] += v;
-      split.forEach((p) => { if (p in bal) bal[p] -= v / split.length; });
-    });
-    const debt = Object.entries(bal).filter(([, v]) => v < -0.005).map(([p, v]) => [p, -v]).sort((a, b) => b[1] - a[1]);
-    const cred = Object.entries(bal).filter(([, v]) => v > 0.005).sort((a, b) => b[1] - a[1]);
-    const out = [];
-    let i = 0;
-    let j = 0;
-    while (i < debt.length && j < cred.length) {
-      const m = Math.min(debt[i][1], cred[j][1]);
-      if (m > 0.005) out.push([debt[i][0], cred[j][0], m]);
-      debt[i][1] -= m;
-      cred[j][1] -= m;
-      if (debt[i][1] <= 0.005) i++;
-      if (cred[j][1] <= 0.005) j++;
-    }
-    return out;
   }
 
   function openMoney() {
@@ -170,24 +124,14 @@
     });
   }
 
-  // What the rest of the budget allows per day: before the trip, spread over every day;
-  // during it, what is left after other days' spending, over today and the days still ahead.
+  // What the rest of the budget allows per day (see dailyBudget in travel-calc.js).
   function dailyHTML(tr, spent) {
-    const m = tr.money;
-    if (!m.budget || !tr.start || spent >= m.budget) return '';
-    const today = LO.todayKey();
-    const end = tr.end || tr.start;
-    if (today > end) return '';
-    if (today < tr.start) {
-      const n = LO.dayDiff(tr.start, end) + 1;
-      return `<span class="stat-sub">${esc(t('perDay')(fmtMoney((m.budget - spent) / n, m.home), n))}</span>`;
-    }
-    const n = LO.dayDiff(today, end) + 1;
-    const spentToday = tr.expenses.filter((e) => e.day === today).reduce((a, e) => a + (toHome(tr, e) || 0), 0);
-    const perDay = (m.budget - (spent - spentToday)) / n;
-    const todayLeft = perDay - spentToday;
-    return `<span class="stat-daily"><span class="stat-sub">${esc(t('perDay')(fmtMoney(perDay, m.home), n))}</span>`
-      + `<span class="stat-sub${todayLeft < 0 ? ' warn' : ''}">${esc(todayLeft < 0 ? t('todayOver')(fmtMoney(-todayLeft, m.home)) : t('todayLeft')(fmtMoney(todayLeft, m.home)))}</span></span>`;
+    const d = dailyBudget(tr, spent, LO.todayKey());
+    if (!d) return '';
+    const per = `<span class="stat-sub">${esc(t('perDay')(fmtMoney(d.perDay, tr.money.home), d.n))}</span>`;
+    if (d.todayLeft == null) return per;
+    return `<span class="stat-daily">${per}`
+      + `<span class="stat-sub${d.todayLeft < 0 ? ' warn' : ''}">${esc(d.todayLeft < 0 ? t('todayOver')(fmtMoney(-d.todayLeft, tr.money.home)) : t('todayLeft')(fmtMoney(d.todayLeft, tr.money.home)))}</span></span>`;
   }
 
   function moneyHTML(tr) {

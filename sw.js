@@ -28,6 +28,7 @@ const SHELL = [
   'js/news.js',
   'js/food.js',
   'js/wardrobe.js',
+  'js/travel-calc.js',
   'js/travel.js',
   'js/travel-book.js',
   'js/travel-money.js',

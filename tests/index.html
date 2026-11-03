@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planner tests</title>
+<style>
+  :root { --bg: #f6f6f4; --ink: #1d2433; --muted: #6b7280; --ok: #1f8a5b; --bad: #c2410c; --line: #e3e3df; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #15181e; --ink: #e8eaee; --muted: #9aa1ad; --ok: #4cc38a; --bad: #f08a5d; --line: #2a2f38; } }
+  body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "PingFang SC", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  .sum { margin: 0 0 16px; color: var(--muted); }
+  .sum b.ok { color: var(--ok); }
+  .sum b.bad { color: var(--bad); }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  li::before { content: "✓ "; color: var(--ok); font-weight: 700; }
+  li.fail::before { content: "✗ "; color: var(--bad); }
+  li code { display: block; margin-top: 4px; color: var(--bad); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Planner tests</h1>
+  <p class="sum" id="sum">Running…</p>
+  <ul id="list"></ul>
+</main>
+<!-- only the calculation code is loaded: no app pages, no saved data, no sync -->
+<script>window.LO = {};</script>
+<script src="../js/travel-calc.js"></script>
+<script src="harness.js"></script>
+<script src="travel-calc.test.js"></script>
+<script>
+  (() => {
+    const results = window.runTests();
+    const failed = results.filter((r) => r.error).length;
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    document.getElementById('list').innerHTML = results.map((r) => `<li class="${r.error ? 'fail' : ''}">${esc(r.name)}${r.error ? `<code>${esc(r.error)}</code>` : ''}</li>`).join('');
+    document.getElementById('sum').innerHTML = failed
+      ? `<b class="bad">${failed} failed</b>, ${results.length - failed} passed`
+      : `<b class="ok">All ${results.length} passed</b>`;
+    document.title = `${failed ? '✗' : '✓'} Planner tests`;
+  })();
+</script>
+</body>
+</html>

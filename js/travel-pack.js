@@ -11,16 +11,7 @@
   const K = LO.tripKit;
   const { T, t, tc, view, PACK_GROUPS, curTrip, editBtn, dragBtn } = K;
   const PACK_KITS = ['beach', 'city', 'cold', 'hike', 'flight', 'work'];
-  // Guess an item's group from its name, in Chinese or English. First match wins
-  // (clothes before toiletries, so 换洗衣物 is clothes even though it has 洗).
-  const GUESS = [
-    ['docs', /护照|身份证|签证|行程单|证件|名片|驾照|机票|车票|门票|交通卡|入境|passport|\bid\b|visa|itinerary|business card|licen|ticket|transit card|arrival card/i],
-    ['tech', /充电|插头|转换|相机|电脑|耳机|手机|数据线|头灯|自拍|charger|power bank|adapter|camera|laptop|headphone|phone|cable|headlamp/i],
-    ['health', /药|急救|防蚊|驱蚊|暖宝宝|口罩|创可贴|medicine|first aid|bug spray|face mask|hand warmer|plaster/i],
-    ['clothes', /衣|裤|裙|鞋|帽|围巾|手套|袜|外套|泳|墨镜|正装|穿搭|羽绒|swim|shirt|trouser|pants|\bdress|shoe|boot|\bhat|scarf|glove|sock|jacket|thermal|outfit|sandal|sunglass|clothes|layer/i],
-    ['wash', /洗|牙|防晒|保湿|润唇|护肤|毛巾|沙滩巾|晒后|化妆|toiletr|sunscreen|moistur|lip balm|towel|tooth|shampoo|after-sun|makeup/i]
-  ];
-  const guess = (name) => (GUESS.find(([, re]) => re.test(name)) || ['other'])[0];
+  const guess = LO.tripCalc.packGuess;
   const grpOf = (i) => i.grp || guess(i.name);
 
   function rowHTML(i) {
@@ -122,5 +113,5 @@
     if (i) i.focus();
   });
 
-  Object.assign(K, { packHTML, packGuess: guess });
+  Object.assign(K, { packHTML });
 })();
