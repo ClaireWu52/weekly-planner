@@ -51,6 +51,7 @@
   const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (_) { /* ignore */ } };
   saveSettings();
   LO.lang = () => settings.lang;
+  LO.saveSettings = () => saveSettings();
   LO.settings = () => settings;
   function applyTheme() {
     if (settings.theme === 'auto') document.documentElement.removeAttribute('data-theme');
@@ -79,6 +80,7 @@
     if (k) k.textContent = LO.isMac ? '⌘Z' : 'Ctrl+Z';
     const tv = $('#themeVal');
     if (tv) tv.textContent = LO.t('app.themeNames')[settings.theme];
+    $$('[data-setlang]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.setlang === settings.lang)));
   };
 
   LO.strings('common', {
@@ -111,19 +113,25 @@
     zh: {
       brand: '我的计划本',
       nav: { today: '今天', tasks: '任务', schedule: '课表', health: '健康', goals: '目标', growth: '成长', life: '生活' },
-      sub: { today: '今日概览', news: '今日新闻', plan: '年度目标', wishes: '心愿清单', learn: '学习清单', records: '成长记录', food: '吃什么', wardrobe: '电子衣橱', travel: '旅游攻略' },
+      sub: { today: '今日概览', news: '今日新闻', plan: '年度目标', wishes: '心愿清单', learn: '学习清单', records: '成长记录', review: '每周回顾', food: '吃什么', wardrobe: '电子衣橱', travel: '旅游攻略' },
+      customize: '自定义页面', custHint: '取消勾选的页面会从导航里隐藏，数据不会删除，随时可以再打开。今日概览不能隐藏。', custSaved: '导航已更新',
+      sync: '同步设置', calendar: '导出到日历', install: '装到手机桌面', installTitle: '装到手机桌面', ok: '知道了',
+      installHow: ['iPhone：用 Safari 打开网站，点底部的“分享”按钮，选“添加到主屏幕”。', 'Android：用 Chrome 打开网站，点右上角的 ⋮，选“安装应用”或“添加到主屏幕”。', '电脑：用 Chrome 或 Edge 打开网站，点地址栏右侧的安装图标。', '装好之后，从桌面图标打开就像一个 App，没网时也能看已有的内容。'],
       more: '更多选项', undo: '撤销', exportData: '导出全部数据', importData: '导入备份', resetSchedule: '恢复初始课表',
       theme: '外观', themeNames: { auto: '跟随系统', light: '浅色', dark: '深色' }, langSwitch: 'English', shortcuts: '快捷键',
-      shortcutsText: '1–7 切换页面　⌘/Ctrl+Z 撤销　课表页：N 新建　← → 切换周　T 本周　P 打印',
+      shortcutsText: '数字键切换页面　⌘/Ctrl+Z 撤销　课表页：N 新建　← → 切换周　T 本周　P 打印',
       imported: '备份已导入', importFailed: '这个文件不是有效的备份'
     },
     en: {
       brand: 'My Planner',
       nav: { today: 'Today', tasks: 'Tasks', schedule: 'Schedule', health: 'Health', goals: 'Goals', growth: 'Growth', life: 'Life' },
-      sub: { today: 'Overview', news: 'News', plan: 'Yearly goals', wishes: 'Wishes', learn: 'Learning', records: 'Growth log', food: 'What to eat', wardrobe: 'Wardrobe', travel: 'Travel' },
+      sub: { today: 'Overview', news: 'News', plan: 'Yearly goals', wishes: 'Wishes', learn: 'Learning', records: 'Growth log', review: 'Weekly review', food: 'What to eat', wardrobe: 'Wardrobe', travel: 'Travel' },
+      customize: 'Customize pages', custHint: 'Unchecked pages are hidden from the navigation. Nothing is deleted, and you can turn them back on anytime. Overview cannot be hidden.', custSaved: 'Navigation updated',
+      sync: 'Sync settings', calendar: 'Export to calendar', install: 'Install on phone', installTitle: 'Install on your phone', ok: 'Got it',
+      installHow: ['iPhone: open the site in Safari, tap Share at the bottom, then "Add to Home Screen".', 'Android: open the site in Chrome, tap ⋮ at the top right, then "Install app" or "Add to Home screen".', 'Computer: open the site in Chrome or Edge and click the install icon on the right of the address bar.', 'Once installed, it opens from the icon like an app and still shows your data offline.'],
       more: 'More options', undo: 'Undo', exportData: 'Export all data', importData: 'Import backup', resetSchedule: 'Restore default schedule',
       theme: 'Appearance', themeNames: { auto: 'System', light: 'Light', dark: 'Dark' }, langSwitch: '中文', shortcuts: 'Keyboard shortcuts',
-      shortcutsText: '1–7 switch pages   ⌘/Ctrl+Z undo   Schedule: N new   ← → week   T this week   P print',
+      shortcutsText: 'Number keys switch pages   ⌘/Ctrl+Z undo   Schedule: N new   ← → week   T this week   P print',
       imported: 'Backup imported', importFailed: "This file isn't a valid backup"
     }
   });
@@ -185,16 +193,18 @@
     let state;
     try { state = normalize(readJSON(key) || defaults()); } catch (_) { state = normalize(defaults()); }
     let timer = null;
+    let dirty = false;
     const store = {
       name,
       key,
       get s() { return state; },
       replace(next) { state = normalize(next); store.save(); },
-      save() { clearTimeout(timer); timer = setTimeout(store.saveNow, 250); },
+      save() { dirty = true; clearTimeout(timer); timer = setTimeout(store.saveNow, 250); },
       saveNow() {
         clearTimeout(timer);
         if (LO.frozen) return;
-        try { localStorage.setItem(key, JSON.stringify(state)); } catch (_) { LO.toast(tc('saveFailed')); }
+        try { localStorage.setItem(key, JSON.stringify(state)); } catch (_) { LO.toast(tc('saveFailed')); return; }
+        if (dirty) { dirty = false; if (LO.onChange) LO.onChange(name); }
       },
       snapshot: () => JSON.stringify(state),
       restore(json) { state = JSON.parse(json); store.save(); }
@@ -204,6 +214,7 @@
     return store;
   };
   LO.store = (name) => stores[name];
+  LO.storeList = () => Object.values(stores).map((x) => ({ name: x.name, key: x.key }));
   window.addEventListener('pagehide', () => Object.values(stores).forEach((s) => s.saveNow()));
 
   const undoStack = [];
@@ -226,8 +237,12 @@
   /* ---------------- router ---------------- */
   // Top-level pages in the nav. "goals" and "growth" each hold two sub-pages.
   const NAV = ['today', 'tasks', 'schedule', 'health', 'goals', 'growth', 'life'];
-  const GROUPS = { today: ['today', 'news'], goals: ['plan', 'wishes'], growth: ['learn', 'records'], life: ['food', 'wardrobe', 'travel'] };
-  const PARENT = { news: 'today', plan: 'goals', wishes: 'goals', learn: 'growth', records: 'growth', food: 'life', wardrobe: 'life', travel: 'life' };
+  const GROUPS = { today: ['today', 'news'], goals: ['plan', 'wishes'], growth: ['learn', 'records', 'review'], life: ['food', 'wardrobe', 'travel'] };
+  const PARENT = { news: 'today', plan: 'goals', wishes: 'goals', learn: 'growth', records: 'growth', review: 'growth', food: 'life', wardrobe: 'life', travel: 'life' };
+  const hiddenList = () => (Array.isArray(settings.hidden) ? settings.hidden : []);
+  const visibleSubs = (top) => GROUPS[top].filter((x) => x === 'today' || !hiddenList().includes(x));
+  const topVisible = (top) => (GROUPS[top] ? visibleSubs(top).length > 0 : !hiddenList().includes(top));
+  const visibleNav = () => NAV.filter(topVisible);
   const lastSub = { today: 'today', goals: 'plan', growth: 'learn', life: 'food' };
   const views = {};
   let current = null;
@@ -242,17 +257,20 @@
     const h = window.location.hash.replace(/^#\/?/, '');
     if (h === 'print') return { top: 'schedule', leaf: 'schedule', print: true };
     const [a, b] = h.split('/');
-    if (GROUPS[a]) return { top: a, leaf: GROUPS[a].includes(b) ? b : (a === 'today' ? 'today' : lastSub[a]) };
-    if (PARENT[a]) return { top: PARENT[a], leaf: a };
-    const top = NAV.includes(a) ? a : 'today';
-    return { top, leaf: top, print: h === 'schedule/print' };
+    let r;
+    if (GROUPS[a]) r = { top: a, leaf: GROUPS[a].includes(b) ? b : (a === 'today' ? 'today' : lastSub[a]) };
+    else if (PARENT[a]) r = { top: PARENT[a], leaf: a };
+    else { const top = NAV.includes(a) ? a : 'today'; r = { top, leaf: top, print: h === 'schedule/print' }; }
+    if (!topVisible(r.top)) return { top: 'today', leaf: 'today' };
+    if (GROUPS[r.top] && !visibleSubs(r.top).includes(r.leaf)) r.leaf = visibleSubs(r.top)[0];
+    return r;
   }
   function renderSubnav(top, leaf) {
     const el = $('#subnav');
     if (!el) return;
-    const subs = GROUPS[top];
-    el.hidden = !subs;
-    if (!subs) { el.innerHTML = ''; return; }
+    const subs = GROUPS[top] ? visibleSubs(top) : null;
+    el.hidden = !subs || subs.length < 2;
+    if (!subs || subs.length < 2) { el.innerHTML = ''; return; }
     el.innerHTML = subs.map((s) => `<a href="#/${top}/${s}"${s === leaf ? ' aria-current="page"' : ''}>${LO.esc(LO.t('app.sub.' + s))}</a>`).join('');
   }
   function show() {
@@ -263,9 +281,12 @@
     document.body.dataset.route = leaf;
     $$('.app-view').forEach((el) => { el.hidden = el.id !== `view-${leaf}`; });
     $$('[data-nav]').forEach((a) => {
+      a.hidden = !topVisible(a.dataset.nav);
       if (a.dataset.nav === top) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
     });
+    const navEl = $('.app-nav');
+    if (navEl) navEl.style.setProperty('--navn', visibleNav().length);
     renderSubnav(top, leaf);
     closeMenu();
     LO.applyI18n();
@@ -396,6 +417,45 @@
     if (b) b.setAttribute('aria-expanded', 'false');
   }
 
+  function openCustomize() {
+    const hidden = hiddenList();
+    let body = `<p class="hint">${LO.esc(LO.t('app.custHint'))}</p><div class="cust-list">`;
+    NAV.forEach((top) => {
+      const leaves = GROUPS[top] || [top];
+      body += `<div class="cust-group"><b>${LO.esc(LO.t('app.nav.' + top))}</b><div class="chips">`
+        + leaves.map((leaf) => {
+          const label = GROUPS[top] ? LO.t('app.sub.' + leaf) : LO.t('app.nav.' + top);
+          const locked = leaf === 'today';
+          return `<label class="check"><input type="checkbox" name="pageon" value="${leaf}"${hidden.includes(leaf) ? '' : ' checked'}${locked ? ' disabled' : ''}>${LO.esc(label)}</label>`;
+        }).join('') + '</div></div>';
+    });
+    body += '</div>';
+    LO.openForm({
+      title: LO.t('app.customize'),
+      body,
+      onSave(dlg) {
+        const on = LO.checkedVals(dlg, 'pageon');
+        settings.hidden = $$('input[name="pageon"]', dlg).map((i) => i.value).filter((v) => v !== 'today' && !on.includes(v));
+        saveSettings();
+        show();
+        LO.toast(LO.t('app.custSaved'));
+        return true;
+      }
+    });
+  }
+
+  let installPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; });
+  function openInstall() {
+    if (installPrompt) { installPrompt.prompt(); installPrompt = null; return; }
+    LO.openForm({
+      title: LO.t('app.installTitle'),
+      body: `<ol class="install-steps">${LO.t('app.installHow').map((x) => `<li>${LO.esc(x)}</li>`).join('')}</ol>`,
+      saveLabel: LO.t('app.ok'),
+      onSave: () => true
+    });
+  }
+
   function currentUndo() {
     const v = views[current];
     return v && v.undo ? v.undo : LO.undo;
@@ -452,6 +512,12 @@
   }
 
   function wireShell() {
+    $$('[data-setlang]').forEach((b) => b.addEventListener('click', () => {
+      if (settings.lang === b.dataset.setlang) return;
+      settings.lang = b.dataset.setlang;
+      saveSettings();
+      LO.refresh();
+    }));
     const menu = $('#menu');
     const moreBtn = $('#moreBtn');
     moreBtn.addEventListener('click', (e) => {
@@ -481,7 +547,10 @@
         LO.applyI18n();
       } else if (act === 'keys') {
         LO.toast(LO.t('app.shortcutsText'), [], 7000);
-      }
+      } else if (act === 'customize') openCustomize();
+      else if (act === 'install') openInstall();
+      else if (act === 'sync' && LO.sync) LO.sync.open();
+      else if (act === 'calendar' && LO.calendar) LO.calendar.open();
     });
     $('#importFile').addEventListener('change', (e) => {
       const f = e.target.files && e.target.files[0];
@@ -500,7 +569,7 @@
       }
       if (typing || anyDialog || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === 'Escape') { closeMenu(); return; }
-      if (/^[1-7]$/.test(e.key)) { window.location.hash = `#/${NAV[+e.key - 1]}`; return; }
+      if (/^[1-9]$/.test(e.key) && visibleNav()[+e.key - 1]) { window.location.hash = `#/${visibleNav()[+e.key - 1]}`; return; }
       const v = views[current];
       if (v && v.keys) v.keys(e);
     });
@@ -518,6 +587,10 @@
     wireShell();
     wireFormDialog();
     show();
+    if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+    if (LO.sync && LO.sync.start) LO.sync.start();
     if (sessionStorage.getItem('planner:imported')) {
       sessionStorage.removeItem('planner:imported');
       LO.toast(LO.t('app.imported'));

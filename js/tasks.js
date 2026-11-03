@@ -7,6 +7,7 @@
   const LO = window.LO;
   const { $, $$, esc, uid } = LO;
   const TCATS = ['study', 'work', 'club', 'health', 'life', 'other'];
+  const AUTOS = ['', 'workout', 'water', 'sleep', 'focus', 'mood'];
 
   LO.strings('tasks', {
     zh: {
@@ -31,6 +32,8 @@
       checklist: '子任务', checklistAdd: '添加子任务', checklistPh: '子任务内容',
       focus: '设为今天重点', unfocus: '取消今天重点', focusFull: '今天已经有三件重点了，先完成一件吧',
       clearDone: '清除已完成', cleared: '已清除', completed: '完成了',
+      autoLabel: '自动打卡', autoHint: '满足条件时会自动勾上，不用手动点。', autoDone: '这一项会根据你的记录自动打卡',
+      autos: { '': '不自动', workout: '记了运动', water: '喝水达标', sleep: '记了睡眠', focus: '专注过一次', mood: '记了心情' }, autoTag: (x) => `自动：${x}`,
       errTitle: '请填写名称。', errDays: '至少选一天。', errDir: '至少选一个方向。',
       seedHabits: [['吃蔬菜水果', 'health', 1, 0], ['走楼梯或多走路', 'health', 1, 0], ['喝含糖饮料', 'health', 0, 1], ['专注学习 25 分钟', 'study', 1, 0]],
       seedDailies: [['吃早餐', 'health', [1, 1, 1, 1, 1, 1, 1]], ['拉伸 10 分钟', 'health', [1, 1, 1, 1, 1, 1, 1]],
@@ -58,6 +61,8 @@
       checklist: 'Checklist', checklistAdd: 'Add item', checklistPh: 'Checklist item',
       focus: "Make it one of today's focus", unfocus: "Remove from today's focus", focusFull: 'You already have three focus items today. Finish one first.',
       clearDone: 'Clear finished', cleared: 'Cleared', completed: 'Done',
+      autoLabel: 'Auto check-in', autoHint: 'Checks itself off when the condition is met.', autoDone: 'This one checks itself off from your logs',
+      autos: { '': 'Manual', workout: 'Logged a workout', water: 'Hit water goal', sleep: 'Logged sleep', focus: 'Did a focus session', mood: 'Logged mood' }, autoTag: (x) => `Auto: ${x}`,
       errTitle: 'Add a name.', errDays: 'Pick at least one day.', errDir: 'Pick at least one direction.',
       seedHabits: [['Eat fruit or vegetables', 'health', 1, 0], ['Take the stairs or walk more', 'health', 1, 0], ['Sugary drinks', 'health', 0, 1], ['Focused study, 25 min', 'study', 1, 0]],
       seedDailies: [['Eat breakfast', 'health', [1, 1, 1, 1, 1, 1, 1]], ['Stretch for 10 minutes', 'health', [1, 1, 1, 1, 1, 1, 1]],
@@ -92,7 +97,7 @@
     (s.dailies || []).forEach((d) => {
       if (!d || typeof d.title !== 'string') return;
       const days = Array.isArray(d.days) && d.days.length === 7 ? d.days.map((x) => (x ? 1 : 0)) : [1, 1, 1, 1, 1, 1, 1];
-      out.dailies.push({ id: String(d.id || uid()), title: d.title, notes: str(d.notes), cat: cat(d.cat, 'other'), days, done: obj(d.done), created: isKey(d.created) ? d.created : today });
+      out.dailies.push({ id: String(d.id || uid()), title: d.title, notes: str(d.notes), cat: cat(d.cat, 'other'), days, done: obj(d.done), auto: AUTOS.includes(d.auto) ? d.auto : '', created: isKey(d.created) ? d.created : today });
     });
     (s.todos || []).forEach((x) => {
       if (!x || typeof x.title !== 'string') return;
@@ -120,6 +125,26 @@
 
   /* ---------------- derived values ---------------- */
   const isDue = (d, date) => !!d.days[LO.wd(date)];
+  function autoMet(d, key) {
+    if (!d.auto) return false;
+    if (d.auto === 'focus') return !!(LO.focus && LO.focus.countOn(key) > 0);
+    return !!(LO.health && LO.health.metOn(d.auto, key));
+  }
+  const isDone = (d, key) => !!d.done[key] || autoMet(d, key);
+  function doneDates(d, sinceKey) {
+    const out = [];
+    const start = sinceKey > d.created ? sinceKey : d.created;
+    const today = LO.todayKey();
+    if (start > today) return out;
+    let date = LO.parseKey(start);
+    for (let i = 0; i < 800; i++) {
+      const k = LO.keyOf(date);
+      if (k > today) break;
+      if (isDue(d, date) && isDone(d, k)) out.push(k);
+      date = LO.addDays(date, 1);
+    }
+    return out;
+  }
 
   function streak(d) {
     const today = new Date();
@@ -129,7 +154,7 @@
       const key = LO.keyOf(date);
       if (key < d.created) break;
       if (!isDue(d, date)) continue;
-      if (d.done[key]) n++;
+      if (isDone(d, key)) n++;
       else if (k === 0) continue;
       else break;
     }
@@ -142,7 +167,7 @@
       const date = LO.addDays(today, i - 6);
       const key = LO.keyOf(date);
       if (key < d.created || !isDue(d, date)) return 'off';
-      if (d.done[key]) return 'on';
+      if (isDone(d, key)) return 'on';
       return i === 6 ? 'wait' : 'miss';
     });
   }
@@ -170,7 +195,7 @@
     const now = new Date();
     const today = LO.todayKey();
     const due = T.s.dailies.filter((d) => isDue(d, now));
-    const doneDailies = due.filter((d) => d.done[today]).length;
+    const doneDailies = due.filter((d) => isDone(d, today)).length;
     let up = 0;
     let down = 0;
     T.s.habits.forEach((h) => { const x = habitDay(h, today); up += x.u; down += x.d; });
@@ -179,7 +204,7 @@
     const dueToday = open.filter((x) => x.due === today).length;
     const mon = LO.keyOf(LO.mondayOf(now));
     let week = T.s.todos.filter((x) => x.done && x.doneAt >= mon).length;
-    T.s.dailies.forEach((d) => { Object.keys(d.done).forEach((k) => { if (k >= mon && d.done[k]) week++; }); });
+    T.s.dailies.forEach((d) => { week += doneDates(d, mon).length; });
     return { dueCount: due.length, doneDailies, up, down, open: open.length, overdue, dueToday, week };
   }
 
@@ -204,14 +229,14 @@
   function dailyRow(d, compact) {
     const today = LO.todayKey();
     const due = isDue(d, new Date());
-    const done = !!d.done[today];
+    const done = isDone(d, today);
     const s = streak(d);
     const dots = `<span class="dots" aria-hidden="true">${last7(d).map((x) => `<i class="${x}"></i>`).join('')}</span>`;
     return `<li class="task daily k-${d.cat}${due ? '' : ' is-off'}${done ? ' is-done' : ''}" data-kind="daily" data-id="${esc(d.id)}">`
       + `<button type="button" class="check" data-act="dcheck"${due ? '' : ' disabled'} aria-pressed="${done}" aria-label="${esc(d.title)}">${LO.icon.check}</button>`
       + `<div class="task-body" data-act="edit"><div class="task-title">${esc(d.title)}</div>`
       + (d.notes && !compact ? `<div class="task-notes">${esc(d.notes)}</div>` : '')
-      + `<div class="task-meta">${compact ? '' : tag(d.cat)}${due ? '' : `<span>${esc(t('notDueToday'))}</span>`}`
+      + `<div class="task-meta">${compact ? '' : tag(d.cat)}${due ? '' : `<span>${esc(t('notDueToday'))}</span>`}${d.auto ? `<span class="auto-tag">${esc(t('autoTag')(t('autos')[d.auto]))}</span>` : ''}`
       + `${compact ? '' : dots}${s > 0 ? `<span class="streak">${esc(t('streak'))} <b>${s}</b></span>` : ''}</div></div></li>`;
   }
 
@@ -253,6 +278,8 @@
     });
   }
   function toggleDaily(id) {
+    const dd = T.s.dailies.find((x) => x.id === id);
+    if (dd && autoMet(dd, LO.todayKey()) && !dd.done[LO.todayKey()]) { LO.toast(t('autoDone')); return; }
     LO.mutate(T, (s) => {
       const d = s.dailies.find((x) => x.id === id);
       if (!d) return;
@@ -319,7 +346,8 @@
       body += `<div class="fld"><span>${esc(t('direction'))}</span><div class="chips">${LO.chips('dir', [['up', esc(t('dirUp'))], ['down', esc(t('dirDown'))]], 'checkbox', dirs)}</div></div>`;
     } else if (kind === 'daily') {
       body += `<div class="fld"><span>${esc(t('repeat'))}</span><div class="chips">${LO.chips('days', LO.seq(7).map((i) => [i, tc('days')[i]]), 'checkbox', LO.seq(7).filter((i) => v.days[i]))}</div>`
-        + `<div class="quick"><button type="button" class="btn sm" data-qd="all">${esc(t('everyday'))}</button><button type="button" class="btn sm" data-qd="wk">${esc(t('weekdays'))}</button><button type="button" class="btn sm" data-qd="we">${esc(t('weekends'))}</button></div></div>`;
+        + `<div class="quick"><button type="button" class="btn sm" data-qd="all">${esc(t('everyday'))}</button><button type="button" class="btn sm" data-qd="wk">${esc(t('weekdays'))}</button><button type="button" class="btn sm" data-qd="we">${esc(t('weekends'))}</button></div></div>`
+        + `<div class="fld"><span>${esc(t('autoLabel'))}</span><div class="chips">${LO.chips('dauto', AUTOS.map((a) => [a, esc(t('autos')[a])]), 'radio', [v.auto || ''])}</div><p class="hint">${esc(t('autoHint'))}</p></div>`;
     } else {
       body += `<div class="fld"><span>${esc(t('due'))}</span><div class="row"><input class="input date" type="date" name="due" value="${esc(v.due)}">`
         + `<button type="button" class="btn sm" data-qdue="0">${esc(tc('today'))}</button><button type="button" class="btn sm" data-qdue="1">${esc(tc('tomorrow'))}</button>`
@@ -370,6 +398,7 @@
           const days = LO.checkedVals(dlg, 'days').map(Number);
           if (!days.length) return t('errDays');
           fields.days = LO.seq(7).map((i) => (days.includes(i) ? 1 : 0));
+          fields.auto = LO.checkedVal(dlg, 'dauto') || '';
         } else {
           fields.due = $('input[name="due"]', dlg).value || '';
           fields.pri = +(LO.checkedVal(dlg, 'pri') || 1);
@@ -451,7 +480,7 @@
     const today = LO.todayKey();
     const st = stats();
     const habits = T.s.habits;
-    let dailies = T.s.dailies.slice().sort((a, b) => (isDue(b, now) - isDue(a, now)) || (!!a.done[today] - !!b.done[today]));
+    let dailies = T.s.dailies.slice().sort((a, b) => (isDue(b, now) - isDue(a, now)) || (isDone(a, today) - isDone(b, today)));
     if (dailyFilter === 'due') dailies = dailies.filter((d) => isDue(d, now));
     let todos;
     if (todoFilter === 'done') todos = T.s.todos.filter((x) => x.done).sort((a, b) => (a.doneAt < b.doneAt ? 1 : -1));
@@ -557,8 +586,11 @@
     todosDoneSince: (k) => T.s.todos.filter((x) => x.done && x.doneAt >= k).length,
     activity(add) {
       T.s.todos.forEach((x) => { if (x.done && x.doneAt) add(x.doneAt, 'todos', 1); });
-      T.s.dailies.forEach((d) => Object.keys(d.done).forEach((k) => { if (d.done[k]) add(k, 'dailies', 1); }));
+      const since = LO.keyOf(LO.addDays(new Date(), -400));
+      T.s.dailies.forEach((d) => doneDates(d, since).forEach((k) => add(k, 'dailies', 1)));
     },
-    dailyChecksSince: (k) => T.s.dailies.reduce((a, d) => a + Object.keys(d.done).filter((x) => x >= k && d.done[x]).length, 0)
+    dailyChecksSince: (k) => T.s.dailies.reduce((a, d) => a + doneDates(d, k).length, 0),
+    isDone,
+    doneDates
   };
 })();

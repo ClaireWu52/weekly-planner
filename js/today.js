@@ -155,6 +155,8 @@
 
   LO.focus = {
     sessionsSince: (k) => Object.entries(F.s.days).filter(([d]) => d >= k).reduce((a, [, v]) => a + v.n, 0),
+    countOn: (k) => (F.s.days[k] || {}).n || 0,
+    minutesOn: (k) => (F.s.days[k] || {}).min || 0,
     activity(add) { Object.entries(F.s.days).forEach(([k, v]) => add(k, 'focus', v.n)); }
   };
 
@@ -200,9 +202,9 @@
     const T = LO.tasks;
     const list = T.dueDailies();
     const today = LO.todayKey();
-    const done = list.filter((d) => d.done[today]).length;
+    const done = list.filter((d) => T.isDone(d, today)).length;
     return `<section class="card o3"><header class="card-head"><h2>${esc(t('dailies'))}</h2><span class="head-ring">${LO.ring(list.length ? done / list.length : 0, 28)}<span class="count">${done}/${list.length}</span></span></header>`
-      + (list.length ? `<ul class="tlist compact">${list.slice().sort((a, b) => !!a.done[today] - !!b.done[today]).map((d) => T.dailyRow(d, true)).join('')}</ul>` : `<p class="empty-note">${esc(t('noDailies'))}</p>`)
+      + (list.length ? `<ul class="tlist compact">${list.slice().sort((a, b) => T.isDone(a, today) - T.isDone(b, today)).map((d) => T.dailyRow(d, true)).join('')}</ul>` : `<p class="empty-note">${esc(t('noDailies'))}</p>`)
       + '</section>';
   }
 

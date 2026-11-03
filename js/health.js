@@ -667,6 +667,16 @@
     waterToday: () => H.s.water.days[LO.todayKey()] || 0,
     moodToday: () => H.s.mood.days[LO.todayKey()] || null,
     workoutsSince: (k) => H.s.workouts.filter((w) => w.date >= k).length,
+    metOn(kind, key) {
+      const S = H.s;
+      if (kind === 'workout') return S.workouts.some((w) => w.date === key);
+      if (kind === 'water') return (S.water.days[key] || 0) >= S.water.goal;
+      if (kind === 'sleep') return !!S.sleep.days[key];
+      if (kind === 'mood') return !!S.mood.days[key];
+      return false;
+    },
+    weekStats,
+    sleepAvg(keys) { const v = keys.map((k) => sleepHours(H.s.sleep.days[k])).filter((x) => x != null); return v.length ? LO.round1(v.reduce((a, b) => a + b, 0) / v.length) : null; },
     activity(add) { H.s.workouts.forEach((w) => add(w.date, 'workouts', 1)); },
     workoutMinSince: (k) => H.s.workouts.filter((w) => w.date >= k).reduce((a, w) => a + w.min, 0)
   };

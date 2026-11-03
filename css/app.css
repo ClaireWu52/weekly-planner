@@ -34,7 +34,8 @@
 .app-nav a:hover { color: var(--ink); }
 .app-nav a[aria-current="page"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, .1); }
 .app-nav svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.app-header .menu-wrap { justify-self: end; }
+.app-header .header-tools { justify-self: end; display: flex; align-items: center; gap: 8px; }
+.lang-seg button { padding: 0 10px; }
 
 @media (max-width: 1240px) {
   .app-nav a { padding: 7px 10px; gap: 6px; font-size: 14px; }
@@ -46,7 +47,7 @@
   .app-header { grid-template-columns: 1fr auto; }
   .app-nav {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
-    display: grid; grid-template-columns: repeat(7, 1fr); gap: 0;
+    display: grid; grid-template-columns: repeat(var(--navn, 7), 1fr); gap: 0;
     padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
     border-radius: 0; background: var(--surface); border-top: 1px solid var(--line);
   }
@@ -797,3 +798,28 @@ button.stat:hover { border-color: var(--line-2); }
 .ti-body p { margin: 3px 0 0; font-size: 13.5px; color: var(--muted); }
 .trip-items li.is-done .ti-body b { color: var(--muted); text-decoration: line-through; }
 .trip-items .btn.ghost { text-decoration: none; color: var(--muted); }
+
+/* ---------- auto check-in, customize, install ---------- */
+.auto-tag { padding: 0 7px; border-radius: 999px; background: var(--life-bg); color: var(--life-ink); font-size: 11.5px; }
+.cust-list { display: grid; gap: 12px; margin-top: 10px; }
+.cust-group b { display: block; margin-bottom: 2px; font-size: 13.5px; }
+.cust-group .chips { gap: 2px 16px; }
+.install-steps { margin: 4px 0 8px; padding-left: 20px; line-height: 1.7; font-size: 14px; }
+
+/* ---------- weekly review ---------- */
+.rv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.rv-card { display: flex; flex-direction: column; gap: 6px; }
+.rv-card p { margin: 0; }
+.rv-h { margin: 0 0 2px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+.rv-big { font-size: 16.5px; font-weight: 600; }
+.rv-card .link { margin-top: 4px; font-size: 13.5px; }
+.rv-moods { display: flex; justify-content: space-between; gap: 4px; }
+.rv-mood { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; color: var(--muted); }
+.rv-nomood { display: block; width: 28px; height: 28px; border-radius: 50%; border: 1.5px dashed var(--line-2); }
+.rv-reflect { margin-top: 16px; }
+.rv-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 900px) { .rv-fields { grid-template-columns: 1fr; } }
+.rv-next { display: grid; gap: 8px; margin-bottom: 12px; }
+.rv-past { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.rv-past-item { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; text-align: left; font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
+.rv-past-item span { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

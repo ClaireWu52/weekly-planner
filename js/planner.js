@@ -147,13 +147,25 @@
     const lang = (navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en';
     return {
       v: 2, title: '', lang, theme: 'auto',
-      recurring: seedRecurring(), weeks: {},
+      recurring: groupRecurring(seedRecurring()), weeks: {},
       view: { start: 8, end: 23, hidden: [] }, print: defaultPrint()
     };
   }
 
   const validEvent = (e) => e && typeof e.title === 'string' && Number.isInteger(e.day) && e.day >= 0 && e.day <= 6
     && Number.isFinite(e.start) && Number.isFinite(e.end) && e.end > e.start && e.start >= 0 && e.end <= 1440;
+  // Recurring events with the same title, type, time, place and dates on different
+  // weekdays form one group, so a class on Tue and Thu is edited together.
+  function groupRecurring(list) {
+    const keys = {};
+    list.forEach((e) => {
+      if (e.group) return;
+      const k = [e.title, e.cat, e.start, e.end, e.place, e.from || '', e.until || ''].join('|');
+      keys[k] = keys[k] || ('g' + Math.random().toString(36).slice(2, 10));
+      e.group = keys[k];
+    });
+    return list;
+  }
   const isDateKey = (k) => typeof k === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(k);
   const cleanEvent = (e) => {
     const out = {
@@ -163,6 +175,7 @@
     if (typeof e.note === 'string' && e.note) out.note = e.note;
     if (isDateKey(e.from)) out.from = e.from;
     if (isDateKey(e.until)) out.until = e.until;
+    if (typeof e.group === 'string' && e.group) out.group = e.group;
     return out;
   };
 
@@ -173,7 +186,7 @@
       title: typeof s.title === 'string' ? s.title : '',
       lang: ['zh', 'en'].includes(s.lang) ? s.lang : d.lang,
       theme: ['auto', 'light', 'dark'].includes(s.theme) ? s.theme : 'auto',
-      recurring: (s.recurring || []).filter(validEvent).map(cleanEvent),
+      recurring: groupRecurring((s.recurring || []).filter(validEvent).map(cleanEvent)),
       weeks: {},
       view: Object.assign({}, d.view, s.view || {}),
       print: Object.assign({}, d.print, s.print || {})
@@ -208,13 +221,20 @@
   let state = load();
   let saveTimer = null;
 
+  let dirty = false;
   function persistNow() {
     clearTimeout(saveTimer);
     if (LO.frozen) return;
     try { localStorage.setItem(STORE, JSON.stringify(state)); }
-    catch (_) { LO.toast(t('saveFailed')); }
+    catch (_) { LO.toast(t('saveFailed')); return; }
+    if (dirty) { dirty = false; if (LO.onChange) LO.onChange('planner'); }
   }
-  function persist() { clearTimeout(saveTimer); saveTimer = setTimeout(persistNow, 250); }
+  function persist() { dirty = true; clearTimeout(saveTimer); saveTimer = setTimeout(persistNow, 250); }
+  const groupOf = (id) => {
+    const ev = state.recurring.find((e) => e.id === id);
+    if (!ev) return [];
+    return ev.group ? state.recurring.filter((e) => e.group === ev.group) : [ev];
+  };
   window.addEventListener('pagehide', persistNow);
 
   /* ---------- undo ---------- */
@@ -702,7 +722,8 @@
     const ev = rec ? state.recurring.find((e) => e.id === id) : week(curKey()).added.find((e) => e.id === id);
     if (!ev) return;
     dctx = { mode: 'edit', rec, id };
-    fillDialog({ title: ev.title, cat: ev.cat, days: [ev.day], start: ev.start, end: ev.end, place: ev.place, note: ev.note || '', from: ev.from || '', until: ev.until || '', repeat: rec ? 'weekly' : 'once' });
+    const days = rec ? groupOf(id).map((e) => e.day).sort() : [ev.day];
+    fillDialog({ title: ev.title, cat: ev.cat, days, start: ev.start, end: ev.end, place: ev.place, note: ev.note || '', from: ev.from || '', until: ev.until || '', repeat: rec ? 'weekly' : 'once' });
   }
 
   function fillDialog(v) {
@@ -770,18 +791,29 @@
     const pick = (weekly) => (weekly ? rbase : base);
     mutate(() => {
       const w = week(key, true);
+      const gid = 'g' + uid();
       if (c.mode === 'new') {
-        v.days.forEach((day) => (v.repeat === 'weekly' ? state.recurring : w.added).push(Object.assign({ id: uid(), day }, pick(v.repeat === 'weekly'))));
+        v.days.forEach((day) => {
+          if (v.repeat === 'weekly') state.recurring.push(Object.assign({ id: uid(), day, group: gid }, rbase));
+          else w.added.push(Object.assign({ id: uid(), day }, base));
+        });
       } else if (!c.rec) {
         w.added = w.added.filter((e) => e.id !== c.id);
-        v.days.forEach((day, i) => (v.repeat === 'weekly' ? state.recurring : w.added).push(Object.assign({ id: i === 0 ? c.id : uid(), day }, pick(v.repeat === 'weekly'))));
+        v.days.forEach((day, i) => {
+          if (v.repeat === 'weekly') state.recurring.push(Object.assign({ id: i === 0 ? c.id : uid(), day, group: gid }, rbase));
+          else w.added.push(Object.assign({ id: i === 0 ? c.id : uid(), day }, base));
+        });
       } else if (scope === 'week') {
-        if (!w.skipped.includes(c.id)) w.skipped.push(c.id);
+        groupOf(c.id).forEach((m) => { if (!w.skipped.includes(m.id)) w.skipped.push(m.id); });
         v.days.forEach((day) => w.added.push(Object.assign({ id: uid(), day }, base)));
       } else {
-        const idx = state.recurring.findIndex((e) => e.id === c.id);
-        if (idx >= 0) state.recurring[idx] = Object.assign({ id: c.id, day: v.days[0] }, rbase);
-        v.days.slice(1).forEach((day) => state.recurring.push(Object.assign({ id: uid(), day }, rbase)));
+        const members = groupOf(c.id);
+        const byDay = {};
+        members.forEach((m) => { byDay[m.day] = m; });
+        const keep = members.length && members[0].group ? members[0].group : gid;
+        const ids = members.map((m) => m.id);
+        state.recurring = state.recurring.filter((e) => !ids.includes(e.id));
+        v.days.forEach((day) => state.recurring.push(Object.assign({ id: byDay[day] ? byDay[day].id : uid(), day, group: keep }, rbase)));
       }
     }, c.mode === 'new' ? t('added') : (c.rec && scope === 'week' ? t('changedThisWeek') : t('saved')));
     dlg.close();
@@ -827,8 +859,9 @@
     const key = curKey();
     mutate(() => {
       if (c.rec) {
-        state.recurring = state.recurring.filter((e) => e.id !== c.id);
-        Object.values(state.weeks).forEach((w) => { w.skipped = w.skipped.filter((i) => i !== c.id); });
+        const ids = groupOf(c.id).map((m) => m.id);
+        state.recurring = state.recurring.filter((e) => !ids.includes(e.id));
+        Object.values(state.weeks).forEach((w) => { w.skipped = w.skipped.filter((i) => !ids.includes(i)); });
       } else {
         const w = week(key, true);
         w.added = w.added.filter((e) => e.id !== c.id);
@@ -989,7 +1022,13 @@
     if (d.rec) {
       mutate(() => {
         const ev = state.recurring.find((x) => x.id === d.ev.id);
-        if (ev) Object.assign(ev, props);
+        if (!ev) return;
+        if (props.day === ev.day) {
+          // same weekday, new time: move every day of the group together
+          groupOf(ev.id).forEach((m) => { m.start = props.start; m.end = props.end; });
+        } else {
+          Object.assign(ev, props);
+        }
       }, t('movedWeekly'), [{
         label: t('onlyThisWeek'),
         run: () => {
@@ -1149,6 +1188,9 @@
       return hrs;
     },
     catLabel: (c) => t('cats.' + c),
+    raw: () => state,
+    raw: () => state,
+    weekEventsOf: (date) => weekEvents(keyOf(mondayOf(date))),
     addWeekEvents(date, items) {
       // items: [{ day, start, end, title, place, cat, note }] added as this-week-only events
       const key = keyOf(mondayOf(date));

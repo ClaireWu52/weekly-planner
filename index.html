@@ -50,11 +50,18 @@
       <span data-i18n="app.nav.life"></span>
     </a>
   </nav>
+  <div class="header-tools">
+  <div class="seg sm lang-seg" role="group" aria-label="Language">
+    <button type="button" data-setlang="zh" lang="zh-CN">中文</button>
+    <button type="button" data-setlang="en" lang="en">EN</button>
+  </div>
   <div class="menu-wrap" id="menuWrap">
     <button class="icon-btn lg" id="moreBtn" aria-haspopup="true" aria-expanded="false" data-i18n-aria="app.more">⋯</button>
     <div class="menu" id="menu" hidden>
       <button data-act="undo"><span data-i18n="app.undo"></span><kbd id="undoKbd"></kbd></button>
       <hr>
+      <button data-act="customize"><span data-i18n="app.customize"></span></button>
+      <button data-act="calendar"><span data-i18n="app.calendar"></span></button>
       <button data-act="export"><span data-i18n="app.exportData"></span></button>
       <button data-act="import"><span data-i18n="app.importData"></span></button>
       <button data-act="resetSchedule"><span data-i18n="app.resetSchedule"></span></button>
@@ -63,6 +70,7 @@
       <button data-act="lang"><span data-i18n="app.langSwitch"></span></button>
       <button data-act="keys"><span data-i18n="app.shortcuts"></span></button>
     </div>
+  </div>
   </div>
 </header>
 
@@ -125,6 +133,7 @@
   <section class="app-view" id="view-wishes" hidden></section>
   <section class="app-view" id="view-learn" hidden></section>
   <section class="app-view" id="view-records" hidden></section>
+  <section class="app-view" id="view-review" hidden></section>
   <section class="app-view" id="view-food" hidden></section>
   <section class="app-view" id="view-wardrobe" hidden></section>
   <section class="app-view" id="view-travel" hidden></section>
@@ -222,6 +231,8 @@
 <script src="js/food.js"></script>
 <script src="js/wardrobe.js"></script>
 <script src="js/travel.js"></script>
+<script src="js/review.js"></script>
+<script src="js/calendar.js"></script>
 <script src="js/today.js"></script>
 </body>
 </html>
