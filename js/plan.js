@@ -74,7 +74,7 @@
     });
     for (let m = 1; m <= 12; m++) {
       const list = ((y.months || {})[m] || []).filter((x) => x && typeof x.text === 'string');
-      if (list.length) out.months[m] = list.map((x) => ({ id: String(x.id || uid()), goalId: str(x.goalId), text: x.text, done: !!x.done, todo: !!x.todo }));
+      if (list.length) out.months[m] = list.map((x) => ({ id: String(x.id || uid()), goalId: str(x.goalId), text: x.text, done: !!x.done, todo: !!x.todo, todoId: str(x.todoId) }));
     }
     return out;
   }
@@ -203,6 +203,21 @@
     return `${h}</div>`;
   }
 
+  // A month item sent to to-dos follows that to-do: finishing either one finishes both.
+  // Items sent before the link was stored (no todoId), or whose to-do was deleted, keep their own tick.
+  const linkedTodo = (x) => (x.todoId && LO.tasks ? LO.tasks.todoById(x.todoId) : null);
+  const itemDone = (x) => { const td = linkedTodo(x); return td ? td.done : x.done; };
+  function miRow(y, x, canDelete) {
+    const g = findGoal(y, x.goalId);
+    const done = itemDone(x);
+    return `<li class="mi${done ? ' is-done' : ''}${g ? ' k-' + g.cat : ''}" data-mi="${esc(x.id)}">`
+      + `<label><input type="checkbox" data-mtoggle${done ? ' checked' : ''}><span>${esc(x.text)}</span></label>`
+      + (g ? `<i class="mi-dot" title="${esc(g.title)}"></i>` : '')
+      + (done ? '' : x.todo ? `<span class="mi-linked">${LO.icon.check}${esc(t('linked'))}</span>` : `<button type="button" class="mi-todo" data-mtodo>${LO.icon.plus}${esc(t('toTodo'))}</button>`)
+      + (canDelete ? `<button type="button" class="icon-btn sm ghost" data-mdel aria-label="${esc(tc('delete'))}">${LO.icon.x}</button>` : '')
+      + '</li>';
+  }
+
   function monthsHTML(y) {
     const now = new Date();
     const curM = now.getFullYear() === year ? now.getMonth() + 1 : 0;
@@ -210,18 +225,11 @@
     let h = '<div class="months">';
     for (let m = 1; m <= 12; m++) {
       const list = y.months[m] || [];
-      const done = list.filter((x) => x.done).length;
+      const done = list.filter(itemDone).length;
       const past = (now.getFullYear() > year) || (now.getFullYear() === year && m < curM);
       h += `<section class="month${m === curM ? ' is-now' : ''}${past ? ' is-past' : ''}" data-month="${m}">`
         + `<header><h3>${esc(t('monthNames')[m - 1])}${m === curM ? `<span class="badge live">${esc(t('thisMonth'))}</span>` : ''}</h3>${list.length ? `<span class="count">${done}/${list.length}</span>` : ''}</header>`
-        + `<ul class="mitems">${list.map((x) => {
-          const g = findGoal(y, x.goalId);
-          return `<li class="mi${x.done ? ' is-done' : ''}${g ? ' k-' + g.cat : ''}" data-mi="${esc(x.id)}">`
-            + `<label><input type="checkbox" data-mtoggle${x.done ? ' checked' : ''}><span>${esc(x.text)}</span></label>`
-            + (g ? `<i class="mi-dot" title="${esc(g.title)}"></i>` : '')
-            + (x.done ? '' : x.todo ? `<span class="mi-linked" title="${esc(t('linked'))}">${LO.icon.check}</span>` : `<button type="button" class="icon-btn sm ghost" data-mtodo title="${esc(t('toTodo'))}" aria-label="${esc(t('toTodo'))}">${LO.icon.plus}</button>`)
-            + `<button type="button" class="icon-btn sm ghost" data-mdel aria-label="${esc(tc('delete'))}">${LO.icon.x}</button></li>`;
-        }).join('')}</ul>`
+        + `<ul class="mitems">${list.map((x) => miRow(y, x, true)).join('')}</ul>`
         + `<form class="madd" data-madd="${m}"><input maxlength="80" autocomplete="off" placeholder="${esc(t('monthAddPh'))}" aria-label="${esc(t('monthAddPh'))}">`
         + (y.goals.length ? `<select aria-label="${esc(t('goal'))}">${goalOpts('')}</select>` : '')
         + `<button type="submit" class="icon-btn sm" aria-label="${esc(tc('add'))}">${LO.icon.plus}</button></form>`
@@ -257,7 +265,10 @@
     return { id: li.dataset.mi, m: +box.dataset.month, yr };
   }
   function toggleItem(c) {
-    LO.mutate(P, (s) => { const x = (yearOf(s, c.yr, true).months[c.m] || []).find((i) => i.id === c.id); if (x) x.done = !x.done; });
+    const x = (yearOf(P.s, c.yr, true).months[c.m] || []).find((i) => i.id === c.id);
+    if (!x) return;
+    if (linkedTodo(x)) { LO.tasks.toggleTodo(x.todoId); return; }
+    LO.mutate(P, (s) => { const z = (yearOf(s, c.yr, true).months[c.m] || []).find((i) => i.id === c.id); if (z) z.done = !z.done; });
   }
   function handleMonthClick(e) {
     const c = itemCtx(e.target);
@@ -272,9 +283,10 @@
       if (!x || !LO.tasks) return true;
       const g = findGoal(y, x.goalId);
       x.todo = true;
+      x.todoId = uid();
       P.save();
       const last = new Date(c.yr, c.m, 0);
-      LO.tasks.addTodo({ title: x.text, cat: g ? g.cat : 'other', due: LO.keyOf(last) });
+      LO.tasks.addTodo({ id: x.todoId, title: x.text, cat: g ? g.cat : 'other', due: LO.keyOf(last) });
       LO.toast(t('addedTodo'));
       return true;
     }
@@ -350,11 +362,8 @@
       const list = y.months[m] || [];
       return {
         count: list.length,
-        done: list.filter((x) => x.done).length,
-        html: list.length ? `<ul class="mitems" data-month="${m}" data-year="${now.getFullYear()}">${list.map((x) => {
-          const g = findGoal(y, x.goalId);
-          return `<li class="mi${x.done ? ' is-done' : ''}${g ? ' k-' + g.cat : ''}" data-mi="${esc(x.id)}"><label><input type="checkbox" data-mtoggle${x.done ? ' checked' : ''}><span>${esc(x.text)}</span></label>${g ? `<i class="mi-dot" title="${esc(g.title)}"></i>` : ''}</li>`;
-        }).join('')}</ul>` : ''
+        done: list.filter(itemDone).length,
+        html: list.length ? `<ul class="mitems" data-month="${m}" data-year="${now.getFullYear()}">${list.map((x) => miRow(y, x, false)).join('')}</ul>` : ''
       };
     }
   };
