@@ -18,7 +18,7 @@
       slept: (h) => `昨晚睡了 ${h} 小时`, logSleep: '记录昨晚的睡眠', openHealth: '打开健康',
       habits: '习惯', wishes: '心愿进度', openWishes: '全部心愿',
       timer: '专注计时', work: '专注', brk: '休息', start: '开始', pause: '暂停', resume: '继续', reset: '重置', skip: '跳过',
-      sessions: (n, m) => `今天专注了 ${n} 次，共 ${m} 分钟`, workDone: '专注完成，休息一下吧', breakDone: '休息结束，可以开始下一轮了',
+      sessions: (n, m) => `今天专注了 ${n} 次，共 ${m} 分钟`, workDone: '专注完成，休息一下吧', workDoneFor: (c) => `专注完成，已记到「${c}」。休息一下吧`, focusOn: '专注在', noCourse: '不选课程', breakDone: '休息结束，可以开始下一轮了',
       startBreak: '开始休息', focusing: '专注中', resting: '休息中', length: '时长',
       news: '今日新闻', moreNews: '全部新闻',
       month: '本月重点', openPlan: '全年目标', streak: (g, n) => `${g}。已经连续活跃 ${n} 天了`,
@@ -35,7 +35,7 @@
       slept: (h) => `Slept ${h} h last night`, logSleep: "Log last night's sleep", openHealth: 'Open Health',
       habits: 'Habits', wishes: 'Wishes', openWishes: 'All wishes',
       timer: 'Focus timer', work: 'Focus', brk: 'Break', start: 'Start', pause: 'Pause', resume: 'Resume', reset: 'Reset', skip: 'Skip',
-      sessions: (n, m) => `${n} sessions today, ${m} min`, workDone: 'Session done. Take a break.', breakDone: 'Break over. Ready for the next one.',
+      sessions: (n, m) => `${n} sessions today, ${m} min`, workDone: 'Session done. Take a break.', workDoneFor: (c) => `Session done and added to "${c}". Take a break.`, focusOn: 'Focusing on', noCourse: 'No course', breakDone: 'Break over. Ready for the next one.',
       startBreak: 'Start break', focusing: 'Focusing', resting: 'On break', length: 'Length',
       news: "Today's news", moreNews: 'All news',
       month: 'This month', openPlan: 'Yearly goals', streak: (g, n) => `${g}. ${n}-day streak`,
@@ -48,8 +48,9 @@
 
   /* ---------------- focus timer ---------------- */
   const isKey = (k) => typeof k === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(k);
-  const F = LO.createStore('focus', 'planner:focus:v1', () => ({ v: 1, work: 25, brk: 5, days: {} }), (s) => {
-    const out = { v: 1, work: [15, 25, 45, 50].includes(s.work) ? s.work : 25, brk: [5, 10, 15].includes(s.brk) ? s.brk : 5, days: {} };
+  // course: the 学习清单 course that finished sessions count toward ('' for none)
+  const F = LO.createStore('focus', 'planner:focus:v1', () => ({ v: 1, work: 25, brk: 5, days: {}, course: '' }), (s) => {
+    const out = { v: 1, work: [15, 25, 45, 50].includes(s.work) ? s.work : 25, brk: [5, 10, 15].includes(s.brk) ? s.brk : 5, days: {}, course: typeof s.course === 'string' ? s.course : '' };
     Object.entries(s.days || {}).forEach(([k, v]) => { if (isKey(k) && v && +v.n > 0) out.days[k] = { n: +v.n, min: +v.min || 0 }; });
     return out;
   });
@@ -128,8 +129,9 @@
       const mins = F.s.work;
       F.s.days[k] = { n: ((F.s.days[k] || {}).n || 0) + 1, min: ((F.s.days[k] || {}).min || 0) + mins };
       F.saveNow();
+      const course = focusCourse() ? LO.learn.addFocus(focusCourse(), mins) : null;
       resetTimer('brk');
-      LO.toast(t('workDone'), [{ label: t('startBreak'), run: startTimer }], 10000);
+      LO.toast(course ? t('workDoneFor')(course.title) : t('workDone'), [{ label: t('startBreak'), run: startTimer }], 10000);
       if (LO.route() === 'today' || LO.route() === 'wishes') LO.refresh();
     } else {
       resetTimer('work');
@@ -140,6 +142,16 @@
     const slot = $('#focusSlot');
     if (slot) slot.innerHTML = timerCard();
     paintTimer();
+  }
+
+  // The chosen course, while it's still an active one on the Learning page.
+  const focusCourse = () => (LO.learn && LO.learn.activeCourses().some((c) => c.id === F.s.course) ? F.s.course : '');
+  function coursePick() {
+    const list = LO.learn ? LO.learn.activeCourses() : [];
+    if (!list.length) return '';
+    const cur = focusCourse();
+    return `<label class="ft-course"><span>${esc(t('focusOn'))}</span><select data-fcourse><option value="">${esc(t('noCourse'))}</option>`
+      + `${list.map((c) => `<option value="${esc(c.id)}"${c.id === cur ? ' selected' : ''}>${esc(c.title)}</option>`).join('')}</select></label>`;
   }
 
   // Folded by default: one row with the clock and start/pause. "More" shows the dial and settings.
@@ -154,7 +166,7 @@
     if (!open) {
       return `${head}<div class="focus compact" id="focusBox" data-mode="${timer.mode}" data-running="${running}">`
         + `<span class="ft-clock">${fmtClock(remainNow())}</span><span class="ft-mode">${esc(timer.mode === 'work' ? t('work') : t('brk'))}</span>${main}`
-        + `<p class="hint">${esc(t('sessions')(today.n, today.min))}</p></div>`;
+        + coursePick() + `<p class="hint">${esc(t('sessions')(today.n, today.min))}</p></div>`;
     }
     return `${head}<div class="focus" id="focusBox" data-mode="${timer.mode}" data-running="${running}">`
       + `<div class="seg sm"><button type="button" data-fmode="work" aria-selected="${timer.mode === 'work'}">${esc(t('work'))}</button><button type="button" data-fmode="brk" aria-selected="${timer.mode === 'brk'}">${esc(t('brk'))}</button></div>`
@@ -164,7 +176,7 @@
       + `<div class="ft-len"><span>${esc(t('length'))}</span>${timer.mode === 'work'
         ? [15, 25, 45, 50].map((m) => `<button type="button" class="btn sm${F.s.work === m ? ' on' : ''}" data-flen="${m}">${m}</button>`).join('')
         : [5, 10, 15].map((m) => `<button type="button" class="btn sm${F.s.brk === m ? ' on' : ''}" data-flen="${m}">${m}</button>`).join('')}</div>`
-      + `<p class="hint">${esc(t('sessions')(today.n, today.min))}</p></div>`;
+      + coursePick() + `<p class="hint">${esc(t('sessions')(today.n, today.min))}</p></div>`;
   }
 
   LO.focus = {
@@ -401,6 +413,7 @@
     if (i) i.focus();
   });
   view.addEventListener('change', (e) => {
+    if (e.target.matches('[data-fcourse]')) { F.s.course = e.target.value; F.save(); return; }
     if (!e.target.matches('[data-pick]') || !e.target.value) return;
     const id = e.target.value;
     LO.mutate(LO.tasks.store, (s) => { const x = s.todos.find((y) => y.id === id); if (x) x.focus = LO.todayKey(); });

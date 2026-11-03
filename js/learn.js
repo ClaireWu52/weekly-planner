@@ -20,6 +20,7 @@
       pageOf: (c, n) => `${c} / ${n} 页`, pagesNone: '还没填总页数', page: '读到第几页', update: '更新',
       finishedOn: (d) => `${d} 读完`, start: '开始读', finish: '读完了',
       booksEmpty: { reading: '现在没有在读的书。', want: '把想读的书先记在这里。', done: '读完的书会收在这里。' },
+      focusTime: (m) => `专注了 ${m >= 60 ? `${Math.floor(m / 60)} 小时${m % 60 ? ` ${m % 60} 分钟` : ''}` : `${m} 分钟`}`,
       courses: '课程和技能', coursePh: '比如：机器学习网课、考 AWS 认证、练小提琴音阶',
       kinds: { course: '课程', skill: '技能', cert: '证书', language: '语言' },
       cst: { active: '在学', paused: '暂停', done: '完成' },
@@ -40,6 +41,7 @@
       pageOf: (c, n) => `${c} / ${n} pages`, pagesNone: 'No page count yet', page: 'Current page', update: 'Update',
       finishedOn: (d) => `Finished ${d}`, start: 'Start reading', finish: 'Finished it',
       booksEmpty: { reading: 'Nothing on the go right now.', want: 'Keep the books you want to read here.', done: 'Finished books are kept here.' },
+      focusTime: (m) => `${m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}` : `${m} min`} of focus`,
       courses: 'Courses and skills', coursePh: 'e.g. Machine learning course, AWS certificate, violin scales',
       kinds: { course: 'Course', skill: 'Skill', cert: 'Certificate', language: 'Language' },
       cst: { active: 'Active', paused: 'Paused', done: 'Done' },
@@ -74,7 +76,8 @@
       courses: (s.courses || []).filter((c) => c && typeof c.title === 'string').map((c) => ({
         id: String(c.id || uid()), title: c.title, kind: KINDS.includes(c.kind) ? c.kind : 'course', platform: str(c.platform),
         url: safeUrl(normUrl(c.url)), progress: LO.clamp(Math.round(+c.progress) || 0, 0, 100), status: CSTATUS.includes(c.status) ? c.status : 'active',
-        notes: str(c.notes), doneAt: isKey(c.doneAt) ? c.doneAt : '', created: isKey(c.created) ? c.created : today
+        notes: str(c.notes), doneAt: isKey(c.doneAt) ? c.doneAt : '', created: isKey(c.created) ? c.created : today,
+        focusMin: Math.max(0, Math.round(+c.focusMin) || 0)
       })),
       links: (s.links || []).filter((l) => l && typeof l.title === 'string').map((l) => ({
         id: String(l.id || uid()), title: l.title, url: safeUrl(normUrl(l.url)), topic: str(l.topic).trim(), note: str(l.note), created: isKey(l.created) ? l.created : today
@@ -221,7 +224,7 @@
       + `<h3 class="course-title" data-cedit tabindex="0">${esc(c.title)}</h3>`
       + (c.platform || c.url ? `<p class="course-meta">${esc(c.platform)}${c.url ? ` <a href="${esc(c.url)}" target="_blank" rel="noopener noreferrer">${esc(t('open'))}</a>` : ''}</p>` : '')
       + `<input type="range" class="wish-range" min="0" max="100" step="5" value="${c.progress}" style="--p:${c.progress}%" data-cprog aria-label="${esc(t('progress'))}">`
-      + `<div class="course-foot"><span class="hint" data-cpval>${c.progress}%</span></div></article>`;
+      + `<div class="course-foot"><span class="hint" data-cpval>${c.progress}%</span>${c.focusMin ? `<span class="hint">${esc(t('focusTime')(c.focusMin))}</span>` : ''}</div></article>`;
   }
 
   function render() {
@@ -359,6 +362,15 @@
 
   LO.learn = {
     store: Ls,
+    // courses the focus timer can count toward
+    activeCourses: () => Ls.s.courses.filter((c) => c.status === 'active'),
+    addFocus(id, min) {
+      const c = Ls.s.courses.find((x) => x.id === id);
+      if (!c) return null;
+      c.focusMin += min;
+      Ls.saveNow();
+      return c;
+    },
     booksSince: (k) => Ls.s.books.filter((b) => b.status === 'done' && b.finished >= k).length,
     activity(add) {
       Ls.s.books.forEach((b) => { if (b.status === 'done' && b.finished) add(b.finished, 'books', 1); });
