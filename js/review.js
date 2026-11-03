@@ -77,7 +77,7 @@
       past.forEach((k) => {
         const date = LO.parseKey(k);
         T.dailies.forEach((d) => {
-          if (k < d.created || !d.days[LO.wd(date)]) return;
+          if (k < d.created || !LO.tasks.isDue(d, date)) return;
           due++;
           if (LO.tasks.isDone(d, k)) done++;
         });

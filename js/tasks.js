@@ -15,7 +15,7 @@
       habits: '习惯', dailies: '每日任务', todos: '待办',
       addHabit: '添加一个习惯', addDaily: '添加一个每日任务', addTodo: '添加一个待办',
       habitsHint: '想多做或少做的事，不用每天打卡，做到就点 + 或 −。',
-      dailiesHint: '每天或固定几天要做一次的事，做完打勾，第二天重置。',
+      dailiesHint: '按固定的日子重复的事（每周几、每两周或每月几号），做完打勾，下次重置。',
       todosHint: '只做一次的事，可以设截止日期和子任务，做完就结束。写「周五 交作业」会自动设截止日期。',
       addedDue: (d) => `已添加，截止 ${d}`,
       habitsEmpty: '习惯没有固定时间。做到一次好习惯就点 +，犯了坏习惯就点 −。',
@@ -31,6 +31,9 @@
       newTodo: '新建待办', editTodo: '编辑待办',
       direction: '方向', dirUp: '好习惯 +', dirDown: '坏习惯 −',
       repeat: '重复', everyday: '每天', weekdays: '工作日', weekends: '周末',
+      rWeek: '每周', rBiweek: '每两周', rMonth: '每月', mdayLabel: '每月的哪一天', mdayOpt: (n) => `${n} 日`,
+      biweekHint: '从这周开始算，隔一周做一次。', mdayHint: '没有这一天的月份（比如 31 日），就在那个月的最后一天。',
+      tagBiweek: '每两周', tagMonth: (n) => `每月 ${n} 日`,
       due: '截止日期', clearDue: '不设', nextWeek: '下周一',
       pri: '优先级', priLow: '低', priMid: '普通', priHigh: '高',
       checklist: '子任务', checklistAdd: '添加子任务', checklistPh: '子任务内容',
@@ -48,7 +51,7 @@
       habits: 'Habits', dailies: 'Dailies', todos: 'To-dos',
       addHabit: 'Add a habit', addDaily: 'Add a daily', addTodo: 'Add a to-do',
       habitsHint: 'Things to do more or less of. No schedule; tap + or − whenever it happens.',
-      dailiesHint: 'Things to do once a day, or on set days. Tick them off; they reset tomorrow.',
+      dailiesHint: 'Things that repeat on set days (weekly, every 2 weeks or monthly). Tick them off; they reset next time.',
       todosHint: 'One-off things, with an optional due date and checklist. Type "essay due fri" to set the due date.',
       addedDue: (d) => `Added, due ${d}`,
       habitsEmpty: 'Habits have no schedule. Tap + when you do a good one, − when you slip.',
@@ -64,6 +67,9 @@
       newTodo: 'New to-do', editTodo: 'Edit to-do',
       direction: 'Direction', dirUp: 'Good habit +', dirDown: 'Bad habit −',
       repeat: 'Repeat', everyday: 'Every day', weekdays: 'Weekdays', weekends: 'Weekends',
+      rWeek: 'Weekly', rBiweek: 'Every 2 weeks', rMonth: 'Monthly', mdayLabel: 'Day of the month', mdayOpt: (n) => String(n),
+      biweekHint: 'Counts from this week: on, off, on…', mdayHint: 'In months without that day (like the 31st), it falls on the last day.',
+      tagBiweek: 'Every 2 weeks', tagMonth: (n) => `Monthly on the ${n}${n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th'}`,
       due: 'Due date', clearDue: 'None', nextWeek: 'Next Monday',
       pri: 'Priority', priLow: 'Low', priMid: 'Normal', priHigh: 'High',
       checklist: 'Checklist', checklistAdd: 'Add item', checklistPh: 'Checklist item',
@@ -105,7 +111,12 @@
     (s.dailies || []).forEach((d) => {
       if (!d || typeof d.title !== 'string') return;
       const days = Array.isArray(d.days) && d.days.length === 7 ? d.days.map((x) => (x ? 1 : 0)) : [1, 1, 1, 1, 1, 1, 1];
-      out.dailies.push({ id: String(d.id || uid()), title: d.title, notes: str(d.notes), cat: cat(d.cat, 'other'), days, done: obj(d.done), auto: AUTOS.includes(d.auto) ? d.auto : '', created: isKey(d.created) ? d.created : today });
+      const mday = Math.round(+d.mday);
+      out.dailies.push({
+        id: String(d.id || uid()), title: d.title, notes: str(d.notes), cat: cat(d.cat, 'other'), days, done: obj(d.done), auto: AUTOS.includes(d.auto) ? d.auto : '',
+        every: d.every === 2 ? 2 : 1, anchor: isKey(d.anchor) ? d.anchor : '', mday: mday >= 1 && mday <= 31 ? mday : 0,
+        created: isKey(d.created) ? d.created : today
+      });
     });
     (s.todos || []).forEach((x) => {
       if (!x || typeof x.title !== 'string') return;
@@ -132,7 +143,7 @@
   }
 
   /* ---------------- derived values ---------------- */
-  const isDue = (d, date) => !!d.days[LO.wd(date)];
+  const isDue = (d, date) => LO.taskCalc.isDue(d, date);
   function autoMet(d, key) {
     if (!d.auto) return false;
     if (d.auto === 'focus') return !!(LO.focus && LO.focus.countOn(key) > 0);
@@ -154,20 +165,8 @@
     return out;
   }
 
-  function streak(d) {
-    const today = new Date();
-    let n = 0;
-    for (let k = 0; k < 400; k++) {
-      const date = LO.addDays(today, -k);
-      const key = LO.keyOf(date);
-      if (key < d.created) break;
-      if (!isDue(d, date)) continue;
-      if (isDone(d, key)) n++;
-      else if (k === 0) continue;
-      else break;
-    }
-    return n;
-  }
+  const streak = (d) => LO.taskCalc.streak(d, new Date(), (k) => isDone(d, k));
+  const repeatTag = (d) => (d.mday ? t('tagMonth')(d.mday) : d.every > 1 ? t('tagBiweek') : '');
 
   function last7(d) {
     const today = new Date();
@@ -244,7 +243,7 @@
       + `<button type="button" class="check" data-act="dcheck"${due ? '' : ' disabled'} aria-pressed="${done}" aria-label="${esc(d.title)}">${LO.icon.check}</button>`
       + `<div class="task-body" data-act="edit"><div class="task-title">${esc(d.title)}</div>`
       + (d.notes && !compact ? `<div class="task-notes">${esc(d.notes)}</div>` : '')
-      + `<div class="task-meta">${compact ? '' : tag(d.cat)}${due ? '' : `<span>${esc(t('notDueToday'))}</span>`}${d.auto ? `<span class="auto-tag">${esc(t('autoTag')(t('autos')[d.auto]))}</span>` : ''}`
+      + `<div class="task-meta">${compact ? '' : tag(d.cat)}${repeatTag(d) ? `<span>${esc(repeatTag(d))}</span>` : ''}${due ? '' : `<span>${esc(t('notDueToday'))}</span>`}${d.auto ? `<span class="auto-tag">${esc(t('autoTag')(t('autos')[d.auto]))}</span>` : ''}`
       + `${compact ? '' : dots}${s > 0 ? `<span class="streak">${esc(t('streak'))} <b>${s}</b></span>` : ''}</div></div></li>`;
   }
 
@@ -342,7 +341,7 @@
     const isNew = !item;
     const v = item || {
       title: '', notes: '', cat: kind === 'daily' || kind === 'habit' ? 'health' : 'other',
-      up: true, down: false, days: [1, 1, 1, 1, 1, 1, 1], due: '', pri: 1, checklist: []
+      up: true, down: false, days: [1, 1, 1, 1, 1, 1, 1], every: 1, mday: 0, due: '', pri: 1, checklist: []
     };
     let body = `<label class="fld"><span>${esc(tc('title'))}</span><input class="input" name="title" maxlength="80" value="${esc(v.title)}" autocomplete="off"></label>`
       + `<label class="fld"><span>${esc(tc('notes'))}</span><textarea class="input ta" name="notes" rows="2" maxlength="400" placeholder="${esc(tc('notesPh'))}">${esc(v.notes)}</textarea></label>`
@@ -353,8 +352,13 @@
       if (v.down) dirs.push('down');
       body += `<div class="fld"><span>${esc(t('direction'))}</span><div class="chips">${LO.chips('dir', [['up', esc(t('dirUp'))], ['down', esc(t('dirDown'))]], 'checkbox', dirs)}</div></div>`;
     } else if (kind === 'daily') {
-      body += `<div class="fld"><span>${esc(t('repeat'))}</span><div class="chips">${LO.chips('days', LO.seq(7).map((i) => [i, tc('days')[i]]), 'checkbox', LO.seq(7).filter((i) => v.days[i]))}</div>`
-        + `<div class="quick"><button type="button" class="btn sm" data-qd="all">${esc(t('everyday'))}</button><button type="button" class="btn sm" data-qd="wk">${esc(t('weekdays'))}</button><button type="button" class="btn sm" data-qd="we">${esc(t('weekends'))}</button></div></div>`
+      const mode = v.mday ? 'month' : v.every > 1 ? 'biweek' : 'week';
+      const mdaySel = v.mday || new Date().getDate();
+      body += `<div class="fld"><span>${esc(t('repeat'))}</span><div class="chips">${LO.chips('rmode', [['week', esc(t('rWeek'))], ['biweek', esc(t('rBiweek'))], ['month', esc(t('rMonth'))]], 'radio', [mode])}</div></div>`
+        + `<div class="fld" data-rdays${mode === 'month' ? ' hidden' : ''}><div class="chips">${LO.chips('days', LO.seq(7).map((i) => [i, tc('days')[i]]), 'checkbox', LO.seq(7).filter((i) => v.days[i]))}</div>`
+        + `<div class="quick"><button type="button" class="btn sm" data-qd="all">${esc(t('everyday'))}</button><button type="button" class="btn sm" data-qd="wk">${esc(t('weekdays'))}</button><button type="button" class="btn sm" data-qd="we">${esc(t('weekends'))}</button></div>`
+        + `<p class="hint" data-rbihint${mode === 'biweek' ? '' : ' hidden'}>${esc(t('biweekHint'))}</p></div>`
+        + `<label class="fld" data-rmday${mode === 'month' ? '' : ' hidden'}><span>${esc(t('mdayLabel'))}</span><select class="input" name="mday">${LO.seq(31).map((i) => `<option value="${i + 1}"${i + 1 === mdaySel ? ' selected' : ''}>${esc(t('mdayOpt')(i + 1))}</option>`).join('')}</select><p class="hint">${esc(t('mdayHint'))}</p></label>`
         + `<div class="fld"><span>${esc(t('autoLabel'))}</span><div class="chips">${LO.chips('dauto', AUTOS.map((a) => [a, esc(t('autos')[a])]), 'radio', [v.auto || ''])}</div><p class="hint">${esc(t('autoHint'))}</p></div>`;
     } else {
       body += `<div class="fld"><span>${esc(t('due'))}</span><div class="row"><input class="input date" type="date" name="due" value="${esc(v.due)}">`
@@ -370,6 +374,15 @@
       title: t(titleKey),
       body,
       onOpen(dlg) {
+        const showMode = () => {
+          const m = LO.checkedVal(dlg, 'rmode');
+          const dd = $('[data-rdays]', dlg);
+          if (!dd) return;
+          dd.hidden = m === 'month';
+          $('[data-rmday]', dlg).hidden = m !== 'month';
+          $('[data-rbihint]', dlg).hidden = m !== 'biweek';
+        };
+        $$('input[name="rmode"]', dlg).forEach((i) => i.addEventListener('change', showMode));
         dlg.querySelectorAll('[data-qd]').forEach((b) => b.addEventListener('click', () => {
           const pat = { all: [1, 1, 1, 1, 1, 1, 1], wk: [1, 1, 1, 1, 1, 0, 0], we: [0, 0, 0, 0, 0, 1, 1] }[b.dataset.qd];
           $$('input[name="days"]', dlg).forEach((i) => { i.checked = !!pat[+i.value]; });
@@ -403,9 +416,21 @@
           fields.up = dirs.includes('up');
           fields.down = dirs.includes('down');
         } else if (kind === 'daily') {
-          const days = LO.checkedVals(dlg, 'days').map(Number);
-          if (!days.length) return t('errDays');
-          fields.days = LO.seq(7).map((i) => (days.includes(i) ? 1 : 0));
+          const mode = LO.checkedVal(dlg, 'rmode') || 'week';
+          if (mode === 'month') {
+            fields.mday = +$('select[name="mday"]', dlg).value;
+            fields.every = 1;
+            // keep the weekdays so switching back to weekly starts from them
+            fields.days = item ? item.days : [1, 1, 1, 1, 1, 1, 1];
+          } else {
+            const days = LO.checkedVals(dlg, 'days').map(Number);
+            if (!days.length) return t('errDays');
+            fields.days = LO.seq(7).map((i) => (days.includes(i) ? 1 : 0));
+            fields.mday = 0;
+            fields.every = mode === 'biweek' ? 2 : 1;
+            // every other week counts from the week it was switched on
+            if (fields.every === 2 && !(item && item.every === 2)) fields.anchor = LO.keyOf(LO.mondayOf(new Date()));
+          }
           fields.auto = LO.checkedVal(dlg, 'dauto') || '';
         } else {
           fields.due = $('input[name="due"]', dlg).value || '';
@@ -589,6 +614,7 @@
     habitRow, dailyRow, todoRow,
     openEditor, addTodo, toggleTodo, stats, focusTodos, sortTodos,
     todoById: (id) => T.s.todos.find((x) => x.id === id) || null,
+    isDue,
     dueDailies: () => T.s.dailies.filter((d) => isDue(d, new Date())),
     dueDailiesBy: (c) => T.s.dailies.filter((d) => d.cat === c && isDue(d, new Date())),
     openTodos,
