@@ -19,6 +19,8 @@ const SHELL = [
   'js/default-schedule.js',
   'js/schedule-calc.js',
   'js/planner.js',
+  'js/planner-print.js',
+  'js/planner-edit.js',
   'js/quick-date.js',
   'js/task-calc.js',
   'js/tasks.js',
