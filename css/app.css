@@ -800,6 +800,7 @@ button.stat:hover { border-color: var(--line-2); }
 .trip-items .btn.ghost { text-decoration: none; color: var(--muted); }
 .trip-day { margin-bottom: 12px; }
 .trip-day.is-today { border-color: var(--life-bar); }
+.trip-day .day-route { margin-left: auto; color: var(--focus); text-decoration: none; }
 .plan-time { width: 46px; flex: none; padding-top: 1px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .plan-add { margin: 10px 0 0; }
 .plan-add .plan-time-in { flex: 0 0 116px; }
@@ -828,6 +829,7 @@ button.stat:hover { border-color: var(--line-2); }
 .bk-addr, .bk-note { margin: 8px 0 0; font-size: 13.5px; color: var(--muted); }
 .trip-stats { margin-bottom: 12px; }
 .trip-stats .stat-label { white-space: nowrap; }
+.stat-daily { display: block; min-width: 0; }
 @media (max-width: 760px) { .trip-stats { grid-template-columns: 1fr; } }
 .trip-stats .progress { margin-top: 8px; }
 .trip-stats .progress span, .cat-bars .progress span { background: var(--life-bar); }

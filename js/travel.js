@@ -74,6 +74,7 @@
       // punctuation and editing
       list: (a) => a.join('、'), colon: '：', paren: (s) => `（${s}）`, sep: '，',
       beforeTrip: '出发前', editItem: '编辑', editPlan: '编辑行程安排', editExp: '编辑花费', day: '哪一天', name: '名称',
+      route: '路线', perDay: (m, n) => `每天约 ${m}（${n} 天）`, todayLeft: (m) => `今天还能花 ${m}`, todayOver: (m) => `今天超了 ${m}`,
       price: '价格（可不填）', curName: '币种', priceHint: '填了价格会自动记进「花费」，算在出发前。', fromBooking: '来自预订',
       packReset: '回程清点', packResetDone: '已全部改回没带'
     },
@@ -124,6 +125,7 @@
       shareBook: 'Transport and bookings', sharePlan: 'Itinerary', shareStay: 'Stay', shareFood: 'Food to try', shareSpots: 'Places to see',
       list: (a) => a.join(', '), colon: ': ', paren: (s) => ` (${s})`, sep: ' · ',
       beforeTrip: 'Before the trip', editItem: 'Edit', editPlan: 'Edit plan', editExp: 'Edit expense', day: 'Day', name: 'Name',
+      route: 'Route', perDay: (m, n) => `About ${m} a day (${n} days)`, todayLeft: (m) => `${m} left for today`, todayOver: (m) => `${m} over today`,
       price: 'Price (optional)', curName: 'Currency', priceHint: 'A price is added to Money as spending before the trip.', fromBooking: 'From bookings',
       packReset: 'Pack to go home', packResetDone: 'All unticked for the trip home'
     }
@@ -706,7 +708,9 @@
       const items = tr.plan.filter((p) => p.day === key).sort(byTime);
       const books = bookingLines(tr, key);
       h += `<section class="card trip-sec trip-day${key === today ? ' is-today' : ''}"><header class="card-head"><h2>${esc(n ? t('dayLabel')(n, key) : t('offDay')(key))}`
-        + `${key === today ? `<span class="badge live">${esc(tc('today'))}</span>` : ''}</h2>${items.length ? `<span class="count">${items.filter((p) => p.done).length}/${items.length}</span>` : ''}</header>`;
+        + `${key === today ? `<span class="badge live">${esc(tc('today'))}</span>` : ''}</h2>`
+        + `${items.length > 1 ? `<a class="btn sm ghost day-route" href="${esc(routeUrl(tr, items))}" target="_blank" rel="noopener noreferrer">${esc(t('route'))}</a>` : ''}`
+        + `${items.length ? `<span class="count">${items.filter((p) => p.done).length}/${items.length}</span>` : ''}</header>`;
       if (books.length) {
         h += `<ul class="day-books">${books.map((b) => `<li><span class="plan-time">${esc(b.time)}</span><span class="db-name">${b.icon} ${esc(b.name)}</span>`
           + `${b.conf ? `<button type="button" class="conf-chip mono" data-copy="${esc(b.conf)}" title="${esc(t('copy'))}">${esc(b.conf)}</button>` : ''}</li>`).join('')}</ul>`;
@@ -727,6 +731,14 @@
       h += '</section>';
     });
     return h;
+  }
+
+  // Google Maps directions through the day's plans in order (Maps takes at most 9 stops between start and end).
+  function routeUrl(tr, items) {
+    const stops = items.slice(0, 11).map((p) => `${p.name} ${tr.dest}`);
+    const u = new URLSearchParams({ api: '1', origin: stops[0], destination: stops[stops.length - 1] });
+    if (stops.length > 2) u.set('waypoints', stops.slice(1, -1).join('|'));
+    return `https://www.google.com/maps/dir/?${u}`;
   }
 
   function bookHTML(tr) {
@@ -753,6 +765,26 @@
     return `${h}</div>`;
   }
 
+  // What the rest of the budget allows per day: before the trip, spread over every day;
+  // during it, what is left after other days' spending, over today and the days still ahead.
+  function dailyHTML(tr, spent) {
+    const m = tr.money;
+    if (!m.budget || !tr.start || spent >= m.budget) return '';
+    const today = LO.todayKey();
+    const end = tr.end || tr.start;
+    if (today > end) return '';
+    if (today < tr.start) {
+      const n = LO.dayDiff(tr.start, end) + 1;
+      return `<span class="stat-sub">${esc(t('perDay')(fmtMoney((m.budget - spent) / n, m.home), n))}</span>`;
+    }
+    const n = LO.dayDiff(today, end) + 1;
+    const spentToday = tr.expenses.filter((e) => e.day === today).reduce((a, e) => a + (toHome(tr, e) || 0), 0);
+    const perDay = (m.budget - (spent - spentToday)) / n;
+    const todayLeft = perDay - spentToday;
+    return `<span class="stat-daily"><span class="stat-sub">${esc(t('perDay')(fmtMoney(perDay, m.home), n))}</span>`
+      + `<span class="stat-sub${todayLeft < 0 ? ' warn' : ''}">${esc(todayLeft < 0 ? t('todayOver')(fmtMoney(-todayLeft, m.home)) : t('todayLeft')(fmtMoney(todayLeft, m.home)))}</span></span>`;
+  }
+
   function moneyHTML(tr) {
     const m = tr.money;
     const vals = tr.expenses.map((e) => toHome(tr, e));
@@ -765,7 +797,8 @@
       + `<span class="stat-sub">${esc(m.local !== m.home && m.rate ? `1 ${m.local} = ${m.rate} ${m.home}` : t('moneySet'))}</span></button>`
       + `<div class="stat"><span class="stat-label">${esc(t('spent'))}</span><span class="stat-num">${esc(fmtMoney(spent, m.home))}</span>`
       + `${m.budget ? `<span class="progress sm${leftAmt < 0 ? ' over' : ''}"><span style="width:${pct * 100}%"></span></span>` : `<span class="stat-sub">${esc(t('noBudget'))}</span>`}</div>`
-      + `<div class="stat"><span class="stat-label">${esc(leftAmt < 0 ? t('over') : t('left'))}</span><span class="stat-num${leftAmt < 0 ? ' warn' : ''}">${m.budget ? esc(fmtMoney(Math.abs(leftAmt), m.home)) : '—'}</span></div>`
+      + `<div class="stat"><span class="stat-label">${esc(leftAmt < 0 ? t('over') : t('left'))}</span><span class="stat-num${leftAmt < 0 ? ' warn' : ''}">${m.budget ? esc(fmtMoney(Math.abs(leftAmt), m.home)) : '—'}</span>`
+      + `${dailyHTML(tr, spent)}</div>`
       + '</div>';
     if (missing) h += `<p class="empty-note">${esc(t('needRate'))}</p>`;
 
@@ -970,6 +1003,30 @@
       const books = bookingLines(tr, k).map((b) => ({ time: b.time, name: `${b.icon} ${b.name}`, note: b.conf, done: false }));
       return { id: tr.id, dest: tr.dest, n: dayNum(tr, k), items: books.concat(tr.plan.filter((p) => p.day === k)).sort(byTime) };
     },
-    show(id) { openId = id; sec = 'days'; LO.go('travel'); render(); }
+    show(id) { openId = id; sec = 'days'; LO.go('travel'); render(); },
+    // Trips and bookings from today on, for the calendar export. Times are minutes after midnight, or null for all-day.
+    calendarItems() {
+      const today = LO.todayKey();
+      const mins = (v) => (v ? +v.slice(0, 2) * 60 + +v.slice(3) : null);
+      const out = [];
+      T.s.trips.filter((tr) => tr.start && (tr.end || tr.start) >= today).forEach((tr) => {
+        out.push({ uid: `trip-${tr.id}`, title: `📍 ${tr.dest}`, date: tr.start, endDate: tr.end || tr.start, time: null, desc: tr.note });
+        tr.bookings.filter((b) => b.date && (b.endDate || b.date) >= today).forEach((b) => {
+          const desc = [b.conf && `${t('conf')}${t('colon')}${b.conf}`, b.note].filter(Boolean).join('\n');
+          const loc = b.address || b.from;
+          if (b.kind === 'hotel') {
+            if (b.date >= today) out.push({ uid: `bk-${b.id}-in`, title: `${KIND_ICON.hotel} ${t('checkIn')} ${b.title}`, date: b.date, time: mins(b.time), location: loc, desc, alarm: '-PT1H' });
+            if (b.endDate && b.endDate !== b.date) out.push({ uid: `bk-${b.id}-out`, title: `${KIND_ICON.hotel} ${t('checkOut')} ${b.title}`, date: b.endDate, time: mins(b.endTime), location: loc, desc, alarm: '-PT1H' });
+            return;
+          }
+          const route = b.from || b.to ? ` ${[b.from, b.to].filter(Boolean).join(' → ')}` : '';
+          out.push({
+            uid: `bk-${b.id}`, title: `${KIND_ICON[b.kind]} ${b.title}${route}`, date: b.date, time: mins(b.time),
+            endDate: b.endDate || b.date, endTime: mins(b.endTime), location: loc, desc, alarm: b.kind === 'flight' ? '-PT3H' : '-PT1H'
+          });
+        });
+      });
+      return out;
+    }
   };
 })();
