@@ -12,7 +12,7 @@ const root = path.join(__dirname, '..');
 // the code under test reads window.LO, as it does in the browser
 globalThis.window = globalThis;
 globalThis.LO = {};
-['js/travel-calc.js', 'js/quick-date.js', 'js/task-calc.js', 'js/ics-parse.js', 'tests/harness.js', 'tests/travel-calc.test.js', 'tests/quick-date.test.js', 'tests/task-calc.test.js', 'tests/ics-parse.test.js'].forEach((f) => {
+['js/travel-calc.js', 'js/quick-date.js', 'js/task-calc.js', 'js/ics-parse.js', 'js/schedule-calc.js', 'tests/harness.js', 'tests/travel-calc.test.js', 'tests/quick-date.test.js', 'tests/task-calc.test.js', 'tests/ics-parse.test.js', 'tests/schedule-calc.test.js'].forEach((f) => {
   vm.runInThisContext(fs.readFileSync(path.join(root, f), 'utf8'), { filename: f });
 });
 

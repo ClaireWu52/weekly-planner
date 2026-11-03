@@ -109,6 +109,7 @@
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const uid = () => Math.random().toString(36).slice(2, 10);
+  const { groupRecurring, lanes } = LO.schedCalc;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const toMin = (s) => { const [h, m] = String(s).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
   const fmt = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
@@ -154,18 +155,6 @@
 
   const validEvent = (e) => e && typeof e.title === 'string' && Number.isInteger(e.day) && e.day >= 0 && e.day <= 6
     && Number.isFinite(e.start) && Number.isFinite(e.end) && e.end > e.start && e.start >= 0 && e.end <= 1440;
-  // Recurring events with the same title, type, time, place and dates on different
-  // weekdays form one group, so a class on Tue and Thu is edited together.
-  function groupRecurring(list) {
-    const keys = {};
-    list.forEach((e) => {
-      if (e.group) return;
-      const k = [e.title, e.cat, e.start, e.end, e.place, e.from || '', e.until || ''].join('|');
-      keys[k] = keys[k] || ('g' + Math.random().toString(36).slice(2, 10));
-      e.group = keys[k];
-    });
-    return list;
-  }
   const isDateKey = (k) => typeof k === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(k);
   const cleanEvent = (e) => {
     const out = {
@@ -285,18 +274,7 @@
     }
     return w;
   }
-  function weekEvents(key) {
-    const w = week(key);
-    const [y, m, d] = key.split('-').map(Number);
-    const mon = new Date(y, m - 1, d);
-    const active = (e) => {
-      if (!e.from && !e.until) return true;
-      const k = keyOf(addDays(mon, e.day));
-      return (!e.from || k >= e.from) && (!e.until || k <= e.until);
-    };
-    return state.recurring.filter((e) => !w.skipped.includes(e.id) && active(e)).map((e) => Object.assign({}, e, { rec: true }))
-      .concat(w.added.map((e) => Object.assign({}, e, { rec: false })));
-  }
+  const weekEvents = (key) => LO.schedCalc.weekEvents(state.recurring, week(key), key);
   const plain = (e) => {
     const o = { id: e.id, title: e.title, cat: e.cat, day: e.day, start: e.start, end: e.end, place: e.place };
     if (e.note) o.note = e.note;
@@ -334,30 +312,6 @@
   /* =========================================================
      grid rendering (shared by screen and print)
      ========================================================= */
-  function lanes(list) {
-    const sorted = list.map((e) => Object.assign({}, e)).sort((a, b) => a.start - b.start || b.end - a.end);
-    const out = [];
-    let group = [];
-    let groupEnd = -1;
-    const flush = () => {
-      const ends = [];
-      group.forEach((e) => {
-        let i = ends.findIndex((x) => x <= e.start);
-        if (i < 0) { i = ends.length; ends.push(0); }
-        ends[i] = e.end;
-        e._i = i;
-      });
-      group.forEach((e) => { e._n = ends.length; out.push(e); });
-      group = [];
-    };
-    sorted.forEach((e) => {
-      if (group.length && e.start >= groupEnd) { flush(); groupEnd = -1; }
-      group.push(e);
-      groupEnd = Math.max(groupEnd, e.end);
-    });
-    if (group.length) flush();
-    return out;
-  }
 
   function eventHTML(e, c, span) {
     const s = Math.max(e.start, c.sMin);
