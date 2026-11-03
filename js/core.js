@@ -116,7 +116,7 @@
       brand: '我的计划本',
       nav: { today: '今天', tasks: '任务', schedule: '课表', health: '健康', goals: '目标', growth: '成长', life: '生活' },
       sub: { today: '今日概览', news: '今日新闻', plan: '年度目标', wishes: '心愿清单', learn: '学习清单', records: '成长记录', review: '每周回顾', food: '吃什么', wardrobe: '电子衣橱', travel: '旅游攻略' },
-      customize: '自定义页面', custHint: '取消勾选的页面会从导航里隐藏，数据不会删除，随时可以再打开。今日概览不能隐藏。', custSaved: '导航已更新',
+      customize: '自定义页面', custHint: '取消勾选的页面会从导航里隐藏，数据不会删除，随时可以再打开。今日概览不能隐藏。', custToday: '今日概览里的卡片', custSaved: '导航已更新',
       sync: '同步设置', calendar: '导出到日历', install: '装到手机桌面', installTitle: '装到手机桌面', ok: '知道了',
       installHow: ['iPhone：用 Safari 打开网站，点底部的“分享”按钮，选“添加到主屏幕”。', 'Android：用 Chrome 打开网站，点右上角的 ⋮，选“安装应用”或“添加到主屏幕”。', '电脑：用 Chrome 或 Edge 打开网站，点地址栏右侧的安装图标。', '装好之后，从桌面图标打开就像一个 App，没网时也能看已有的内容。'],
       more: '更多选项', undo: '撤销', exportData: '导出全部数据', importData: '导入备份', resetSchedule: '清空课表',
@@ -128,7 +128,7 @@
       brand: 'My Planner',
       nav: { today: 'Today', tasks: 'Tasks', schedule: 'Schedule', health: 'Health', goals: 'Goals', growth: 'Growth', life: 'Life' },
       sub: { today: 'Overview', news: 'News', plan: 'Yearly goals', wishes: 'Wishes', learn: 'Learning', records: 'Growth log', review: 'Weekly review', food: 'What to eat', wardrobe: 'Wardrobe', travel: 'Travel' },
-      customize: 'Customize pages', custHint: 'Unchecked pages are hidden from the navigation. Nothing is deleted, and you can turn them back on anytime. Overview cannot be hidden.', custSaved: 'Navigation updated',
+      customize: 'Customize pages', custHint: 'Unchecked pages are hidden from the navigation. Nothing is deleted, and you can turn them back on anytime. Overview cannot be hidden.', custToday: 'Cards on Overview', custSaved: 'Navigation updated',
       sync: 'Sync settings', calendar: 'Export to calendar', install: 'Install on phone', installTitle: 'Install on your phone', ok: 'Got it',
       installHow: ['iPhone: open the site in Safari, tap Share at the bottom, then "Add to Home Screen".', 'Android: open the site in Chrome, tap ⋮ at the top right, then "Install app" or "Add to Home screen".', 'Computer: open the site in Chrome or Edge and click the install icon on the right of the address bar.', 'Once installed, it opens from the icon like an app and still shows your data offline.'],
       more: 'More options', undo: 'Undo', exportData: 'Export all data', importData: 'Import backup', resetSchedule: 'Clear schedule',
@@ -432,12 +432,20 @@
           return `<label class="check"><input type="checkbox" name="pageon" value="${leaf}"${hidden.includes(leaf) ? '' : ' checked'}${locked ? ' disabled' : ''}>${LO.esc(label)}</label>`;
         }).join('') + '</div></div>';
     });
+    if (LO.todayCards) {
+      const off = Array.isArray(settings.todayHidden) ? settings.todayHidden : [];
+      body += `<div class="cust-group"><b>${LO.esc(LO.t('app.custToday'))}</b><div class="chips">`
+        + LO.todayCards().map((c) => `<label class="check"><input type="checkbox" name="cardon" value="${c.id}"${off.includes(c.id) ? '' : ' checked'}>${LO.esc(c.label)}</label>`).join('')
+        + '</div></div>';
+    }
     body += '</div>';
     LO.openForm({
       title: LO.t('app.customize'),
       body,
       onSave(dlg) {
         const on = LO.checkedVals(dlg, 'pageon');
+        const cardsOn = LO.checkedVals(dlg, 'cardon');
+        settings.todayHidden = $$('input[name="cardon"]', dlg).map((i) => i.value).filter((v) => !cardsOn.includes(v));
         settings.hidden = $$('input[name="pageon"]', dlg).map((i) => i.value).filter((v) => v !== 'today' && !on.includes(v));
         saveSettings();
         show();

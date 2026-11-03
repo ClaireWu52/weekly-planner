@@ -419,6 +419,12 @@ button.stat:hover { border-color: var(--line-2); }
 .ft-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .ft-len { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
 .focus .hint { margin: 0; }
+.focus.compact { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.focus.compact .ft-clock { font-size: 28px; }
+.focus.compact .ft-mode { font-size: 13px; color: var(--muted); }
+.focus.compact .btn { margin-left: auto; align-self: center; }
+.focus.compact .hint { flex-basis: 100%; }
+.today-quiet { margin: 18px 0 0; text-align: center; }
 
 .focus-card .pick { width: 100%; margin-top: 8px; }
 .head-ring { display: inline-flex; align-items: center; gap: 2px; }

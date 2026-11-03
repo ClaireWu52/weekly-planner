@@ -13,30 +13,34 @@
       schedule: '今天的安排', noEvents: '今天没有课和工作安排。', openSchedule: '打开课表', now: '进行中', next: '接下来',
       focusTitle: '今天的三件重点', focusPh: '今天最重要的一件事', pickTodo: '从待办里挑一件…', focusHint: '只挑三件，做完它们今天就算赢了。',
       dailies: '每日任务', allDailies: '全部', noDailies: '今天没有要做的每日任务。',
-      upcoming: '快到期的待办', noUpcoming: '未来 7 天没有到期的待办。', allTodos: '全部待办',
+      upcoming: '快到期的待办', allTodos: '全部待办',
       health: '健康', water: '喝水', mood: '心情', exercise: (m, g) => `本周运动 ${m} / ${g} 分钟`,
       slept: (h) => `昨晚睡了 ${h} 小时`, logSleep: '记录昨晚的睡眠', openHealth: '打开健康',
-      habits: '习惯', noHabits: '还没有习惯。', wishes: '心愿进度', noWishes: '还没有心愿。', openWishes: '全部心愿',
+      habits: '习惯', wishes: '心愿进度', openWishes: '全部心愿',
       timer: '专注计时', work: '专注', brk: '休息', start: '开始', pause: '暂停', resume: '继续', reset: '重置', skip: '跳过',
       sessions: (n, m) => `今天专注了 ${n} 次，共 ${m} 分钟`, workDone: '专注完成，休息一下吧', breakDone: '休息结束，可以开始下一轮了',
       startBreak: '开始休息', focusing: '专注中', resting: '休息中', length: '时长',
-      news: '今日新闻', moreNews: '全部新闻', noNews: '网站部署到 GitHub 后，这里每天会自动更新头条。',
-      month: '本月重点', openPlan: '全年目标', noMonth: '这个月还没有拆解的目标。', streak: (g, n) => `${g}。已经连续活跃 ${n} 天了`
+      news: '今日新闻', moreNews: '全部新闻',
+      month: '本月重点', openPlan: '全年目标', streak: (g, n) => `${g}。已经连续活跃 ${n} 天了`,
+      timerMore: '展开', timerLess: '收起',
+      quiet: '这些还没有内容，先收起来了：', quietTail: '。有内容后会自动出现。'
     },
     en: {
       greet: (h) => (h < 5 ? "It's late. Get some rest." : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'),
       schedule: "Today's schedule", noEvents: 'No classes or shifts today.', openSchedule: 'Open schedule', now: 'Now', next: 'Next',
       focusTitle: "Today's three focus items", focusPh: 'The most important thing today', pickTodo: 'Pick from your to-dos…', focusHint: 'Pick three. Finish them and today is a win.',
       dailies: 'Dailies', allDailies: 'All', noDailies: 'No dailies due today.',
-      upcoming: 'Due soon', noUpcoming: 'Nothing due in the next 7 days.', allTodos: 'All to-dos',
+      upcoming: 'Due soon', allTodos: 'All to-dos',
       health: 'Health', water: 'Water', mood: 'Mood', exercise: (m, g) => `Exercise this week: ${m} / ${g} min`,
       slept: (h) => `Slept ${h} h last night`, logSleep: "Log last night's sleep", openHealth: 'Open Health',
-      habits: 'Habits', noHabits: 'No habits yet.', wishes: 'Wishes', noWishes: 'No wishes yet.', openWishes: 'All wishes',
+      habits: 'Habits', wishes: 'Wishes', openWishes: 'All wishes',
       timer: 'Focus timer', work: 'Focus', brk: 'Break', start: 'Start', pause: 'Pause', resume: 'Resume', reset: 'Reset', skip: 'Skip',
       sessions: (n, m) => `${n} sessions today, ${m} min`, workDone: 'Session done. Take a break.', breakDone: 'Break over. Ready for the next one.',
       startBreak: 'Start break', focusing: 'Focusing', resting: 'On break', length: 'Length',
-      news: "Today's news", moreNews: 'All news', noNews: 'Headlines appear here once the site is deployed on GitHub.',
-      month: 'This month', openPlan: 'Yearly goals', noMonth: 'Nothing planned for this month yet.', streak: (g, n) => `${g}. ${n}-day streak`
+      news: "Today's news", moreNews: 'All news',
+      month: 'This month', openPlan: 'Yearly goals', streak: (g, n) => `${g}. ${n}-day streak`,
+      timerMore: 'More', timerLess: 'Less',
+      quiet: 'Tucked away until they have something in them: ', quietTail: '.'
     }
   });
   const t = LO.ns('today');
@@ -138,14 +142,24 @@
     paintTimer();
   }
 
+  // Folded by default: one row with the clock and start/pause. "More" shows the dial and settings.
+  const timerOpen = () => !!LO.settings().timerOpen;
   function timerCard() {
     const today = F.s.days[LO.todayKey()] || { n: 0, min: 0 };
     const running = timer.running;
     const paused = !running && timer.remain < (timer.mode === 'work' ? F.s.work : F.s.brk) * 60000;
-    return `<div class="focus" id="focusBox" data-mode="${timer.mode}" data-running="${running}">`
+    const open = timerOpen();
+    const head = `<header class="card-head"><h2>${esc(t('timer'))}</h2><button type="button" class="link link-btn" data-ftoggle aria-expanded="${open}">${esc(open ? t('timerLess') : t('timerMore'))}</button></header>`;
+    const main = `<button type="button" class="btn primary" data-ft="${running ? 'pause' : 'start'}">${esc(running ? t('pause') : paused ? t('resume') : t('start'))}</button>`;
+    if (!open) {
+      return `${head}<div class="focus compact" id="focusBox" data-mode="${timer.mode}" data-running="${running}">`
+        + `<span class="ft-clock">${fmtClock(remainNow())}</span><span class="ft-mode">${esc(timer.mode === 'work' ? t('work') : t('brk'))}</span>${main}`
+        + `<p class="hint">${esc(t('sessions')(today.n, today.min))}</p></div>`;
+    }
+    return `${head}<div class="focus" id="focusBox" data-mode="${timer.mode}" data-running="${running}">`
       + `<div class="seg sm"><button type="button" data-fmode="work" aria-selected="${timer.mode === 'work'}">${esc(t('work'))}</button><button type="button" data-fmode="brk" aria-selected="${timer.mode === 'brk'}">${esc(t('brk'))}</button></div>`
       + `<div class="ft-dial">${LO.ring(1, 150)}<span class="ft-clock">${fmtClock(remainNow())}</span></div>`
-      + `<div class="ft-actions"><button type="button" class="btn primary" data-ft="${running ? 'pause' : 'start'}">${esc(running ? t('pause') : paused ? t('resume') : t('start'))}</button>`
+      + `<div class="ft-actions">${main}`
       + `<button type="button" class="btn" data-ft="reset">${esc(t('reset'))}</button><button type="button" class="btn ghost" data-ft="skip">${esc(t('skip'))}</button></div>`
       + `<div class="ft-len"><span>${esc(t('length'))}</span>${timer.mode === 'work'
         ? [15, 25, 45, 50].map((m) => `<button type="button" class="btn sm${F.s.work === m ? ' on' : ''}" data-flen="${m}">${m}</button>`).join('')
@@ -231,12 +245,16 @@
       + '</section>';
   }
 
+  // Cards with nothing in them are left out and named in one line at the bottom instead.
+  let quiet = [];
+  const tuck = (label, href) => { quiet.push({ label, href }); return ''; };
+
   function upcomingCard() {
     const T = LO.tasks;
     const list = T.upcoming(7).slice(0, 6);
+    if (!list.length) return tuck(t('upcoming'), '#/tasks');
     return `<section class="card o5"><header class="card-head"><h2>${esc(t('upcoming'))}</h2><a class="link" href="#/tasks">${esc(t('allTodos'))}</a></header>`
-      + (list.length ? `<ul class="tlist compact">${list.map((x) => T.todoRow(x, true)).join('')}</ul>` : `<p class="empty-note">${esc(t('noUpcoming'))}</p>`)
-      + '</section>';
+      + `<ul class="tlist compact">${list.map((x) => T.todoRow(x, true)).join('')}</ul></section>`;
   }
 
   function healthCard() {
@@ -259,44 +277,75 @@
   function habitsCard() {
     const T = LO.tasks;
     const list = T.store.s.habits;
+    if (!list.length) return tuck(t('habits'), '#/tasks');
     return `<section class="card o6"><header class="card-head"><h2>${esc(t('habits'))}</h2></header>`
-      + (list.length ? `<ul class="tlist compact">${list.map((x) => T.habitRow(x, true)).join('')}</ul>` : `<p class="empty-note">${esc(t('noHabits'))}</p>`)
-      + '</section>';
+      + `<ul class="tlist compact">${list.map((x) => T.habitRow(x, true)).join('')}</ul></section>`;
   }
 
   function monthCard() {
     if (!LO.plan) return '';
     const m = LO.plan.thisMonthHTML();
-    return `<section class="card o8"><header class="card-head"><h2>${esc(t('month'))}${m.count ? `<span class="count">${m.done}/${m.count}</span>` : ''}</h2><a class="link" href="#/goals/plan">${esc(t('openPlan'))}</a></header>`
-      + (m.count ? m.html : `<p class="empty-note">${esc(t('noMonth'))}</p>`) + '</section>';
+    if (!m.count) return tuck(t('month'), '#/goals/plan');
+    return `<section class="card o8"><header class="card-head"><h2>${esc(t('month'))}<span class="count">${m.done}/${m.count}</span></h2><a class="link" href="#/goals/plan">${esc(t('openPlan'))}</a></header>`
+      + `${m.html}</section>`;
   }
 
   function newsCard() {
     if (!LO.news) return '';
     const list = LO.news.top(4);
+    if (!list.length) return '';
     return `<section class="card o9"><header class="card-head"><h2>${esc(t('news'))}</h2><a class="link" href="#/today/news">${esc(t('moreNews'))}</a></header>`
-      + (list.length ? `<ul class="news-list compact">${list.map((x) => LO.news.itemHTML(x, true)).join('')}</ul>` : `<p class="empty-note">${esc(t('noNews'))}</p>`)
-      + '</section>';
+      + `<ul class="news-list compact">${list.map((x) => LO.news.itemHTML(x, true)).join('')}</ul></section>`;
   }
 
   function wishesCard() {
     const list = LO.wishes.top(3);
+    if (!list.length) return tuck(t('wishes'), '#/goals/wishes');
     return `<section class="card o10"><header class="card-head"><h2>${esc(t('wishes'))}</h2><a class="link" href="#/goals/wishes">${esc(t('openWishes'))}</a></header>`
-      + (list.length ? `<ul class="wish-mini">${list.map(({ w, p }) => `<li class="${LO.wishes.catClass(w.cat)}"><div class="wm-top"><b>${esc(w.title)}</b><span>${p.ready ? esc(LO.t('wishes.ready')) : esc(p.label)}</span></div><div class="progress sm"><span style="width:${p.pct * 100}%"></span></div></li>`).join('')}</ul>`
-        : `<p class="empty-note">${esc(t('noWishes'))}</p>`)
-      + '</section>';
+      + `<ul class="wish-mini">${list.map(({ w, p }) => `<li class="${LO.wishes.catClass(w.cat)}"><div class="wm-top"><b>${esc(w.title)}</b><span>${p.ready ? esc(LO.t('wishes.ready')) : esc(p.label)}</span></div><div class="progress sm"><span style="width:${p.pct * 100}%"></span></div></li>`).join('')}</ul></section>`;
+  }
+
+  function timerSection() {
+    return `<section class="card o7" id="focusSlot">${timerCard()}</section>`;
+  }
+
+  // Cards the reader can turn off under ⋯ → Customize pages. A card also goes
+  // away when the page it comes from is hidden.
+  const CARDS = [
+    { id: 'schedule', label: 'schedule', page: 'schedule', html: scheduleCard },
+    { id: 'timer', label: 'timer', html: timerSection },
+    { id: 'focus', label: 'focusTitle', html: focusCard },
+    { id: 'dailies', label: 'dailies', html: dailiesCard },
+    { id: 'upcoming', label: 'upcoming', page: 'tasks', html: upcomingCard },
+    { id: 'health', label: 'health', page: 'health', html: healthCard },
+    { id: 'habits', label: 'habits', page: 'tasks', html: habitsCard },
+    { id: 'month', label: 'month', page: 'plan', html: monthCard },
+    { id: 'news', label: 'news', page: 'news', html: newsCard },
+    { id: 'wishes', label: 'wishes', page: 'wishes', html: wishesCard }
+  ];
+  LO.todayCards = () => CARDS.map((c) => ({ id: c.id, label: t(c.label) }));
+  function card(id) {
+    const c = CARDS.find((x) => x.id === id);
+    const s = LO.settings();
+    const off = (Array.isArray(s.todayHidden) && s.todayHidden.includes(id)) || (c.page && Array.isArray(s.hidden) && s.hidden.includes(c.page));
+    return off ? '' : c.html();
   }
 
   function render() {
     const now = new Date();
     const streak = LO.records ? LO.records.streak() : 0;
     const greet = t('greet')(now.getHours());
+    quiet = [];
     let h = `<div class="view-head"><div><h1>${esc(LO.dateLine(now))}</h1><p class="sub">${esc(streak >= 2 ? t('streak')(greet.replace(/[。.]$/, ''), streak) : greet)}</p></div></div>`;
     h += '<div class="today-grid">';
-    h += `<div class="tcol-a">${tripCard()}${scheduleCard()}<section class="card o7"><header class="card-head"><h2>${esc(t('timer'))}</h2></header><div id="focusSlot">${timerCard()}</div></section></div>`;
-    h += `<div class="tcol-b">${focusCard()}${dailiesCard()}${upcomingCard()}</div>`;
-    h += `<div class="tcol-c">${healthCard()}${habitsCard()}${monthCard()}${newsCard()}${wishesCard()}</div>`;
+    h += `<div class="tcol-a">${tripCard()}${card('schedule')}${card('timer')}</div>`;
+    h += `<div class="tcol-b">${card('focus')}${card('dailies')}${card('upcoming')}</div>`;
+    h += `<div class="tcol-c">${card('health')}${card('habits')}${card('month')}${card('news')}${card('wishes')}</div>`;
     h += '</div>';
+    if (quiet.length) {
+      const sep = LO.lang() === 'zh' ? '、' : ', ';
+      h += `<p class="hint today-quiet">${esc(t('quiet'))}${quiet.map((q) => `<a class="link" href="${q.href}">${esc(q.label)}</a>`).join(sep)}${esc(t('quietTail'))}</p>`;
+    }
     view.innerHTML = h;
     paintTimer();
   }
@@ -318,6 +367,12 @@
       else if (a === 'pause') pauseTimer();
       else if (a === 'reset') resetTimer(timer.mode);
       else if (a === 'skip') resetTimer(timer.mode === 'work' ? 'brk' : 'work');
+      return;
+    }
+    if (e.target.closest('[data-ftoggle]')) {
+      LO.settings().timerOpen = !timerOpen();
+      LO.saveSettings();
+      refreshTimerCard();
       return;
     }
     const fm = e.target.closest('[data-fmode]');
