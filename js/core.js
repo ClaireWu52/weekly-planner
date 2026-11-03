@@ -114,7 +114,7 @@
   LO.strings('app', {
     zh: {
       brand: '我的计划本',
-      nav: { today: '今天', tasks: '任务', schedule: '课表', health: '健康', goals: '目标', growth: '成长', life: '生活' },
+      nav: { today: '今天', tasks: '任务', schedule: '课表', health: '健康', growth: '成长', life: '生活' },
       sub: { today: '今日概览', news: '今日新闻', plan: '年度目标', wishes: '心愿清单', learn: '学习清单', records: '成长记录', review: '每周回顾', food: '吃什么', wardrobe: '电子衣橱', travel: '旅游攻略' },
       customize: '自定义页面', custHint: '取消勾选的页面会从导航里隐藏，数据不会删除，随时可以再打开。今日概览不能隐藏。', custToday: '今日概览里的卡片', custSaved: '导航已更新',
       sync: '同步设置', calendar: '导出到日历', install: '装到手机桌面', installTitle: '装到手机桌面', ok: '知道了',
@@ -126,7 +126,7 @@
     },
     en: {
       brand: 'My Planner',
-      nav: { today: 'Today', tasks: 'Tasks', schedule: 'Schedule', health: 'Health', goals: 'Goals', growth: 'Growth', life: 'Life' },
+      nav: { today: 'Today', tasks: 'Tasks', schedule: 'Schedule', health: 'Health', growth: 'Growth', life: 'Life' },
       sub: { today: 'Overview', news: 'News', plan: 'Yearly goals', wishes: 'Wishes', learn: 'Learning', records: 'Growth log', review: 'Weekly review', food: 'What to eat', wardrobe: 'Wardrobe', travel: 'Travel' },
       customize: 'Customize pages', custHint: 'Unchecked pages are hidden from the navigation. Nothing is deleted, and you can turn them back on anytime. Overview cannot be hidden.', custToday: 'Cards on Overview', custSaved: 'Navigation updated',
       sync: 'Sync settings', calendar: 'Export to calendar', install: 'Install on phone', installTitle: 'Install on your phone', ok: 'Got it',
@@ -237,15 +237,16 @@
   };
 
   /* ---------------- router ---------------- */
-  // Top-level pages in the nav. "goals" and "growth" each hold two sub-pages.
-  const NAV = ['today', 'tasks', 'schedule', 'health', 'goals', 'growth', 'life'];
-  const GROUPS = { today: ['today', 'news'], goals: ['plan', 'wishes'], growth: ['learn', 'records', 'review'], life: ['food', 'wardrobe', 'travel'] };
-  const PARENT = { news: 'today', plan: 'goals', wishes: 'goals', learn: 'growth', records: 'growth', review: 'growth', food: 'life', wardrobe: 'life', travel: 'life' };
+  // Top-level pages in the nav. "growth" holds the long-term pages (goals, wishes,
+  // learning, growth log, weekly review); old #/goals links still land there.
+  const NAV = ['today', 'tasks', 'schedule', 'health', 'growth', 'life'];
+  const GROUPS = { today: ['today', 'news'], growth: ['plan', 'wishes', 'learn', 'records', 'review'], life: ['food', 'wardrobe', 'travel'] };
+  const PARENT = { news: 'today', plan: 'growth', wishes: 'growth', learn: 'growth', records: 'growth', review: 'growth', food: 'life', wardrobe: 'life', travel: 'life' };
   const hiddenList = () => (Array.isArray(settings.hidden) ? settings.hidden : []);
   const visibleSubs = (top) => GROUPS[top].filter((x) => x === 'today' || !hiddenList().includes(x));
   const topVisible = (top) => (GROUPS[top] ? visibleSubs(top).length > 0 : !hiddenList().includes(top));
   const visibleNav = () => NAV.filter(topVisible);
-  const lastSub = { today: 'today', goals: 'plan', growth: 'learn', life: 'food' };
+  const lastSub = { today: 'today', growth: 'plan', life: 'food' };
   const views = {};
   let current = null;
   LO.view = (name, def) => { views[name] = def; };
@@ -258,7 +259,9 @@
   function parseHash() {
     const h = window.location.hash.replace(/^#\/?/, '');
     if (h === 'print') return { top: 'schedule', leaf: 'schedule', print: true };
-    const [a, b] = h.split('/');
+    const parts = h.split('/');
+    const a = parts[0] === 'goals' ? 'growth' : parts[0];
+    const b = parts[1];
     let r;
     if (GROUPS[a]) r = { top: a, leaf: GROUPS[a].includes(b) ? b : (a === 'today' ? 'today' : lastSub[a]) };
     else if (PARENT[a]) r = { top: PARENT[a], leaf: a };
@@ -274,6 +277,9 @@
     el.hidden = !subs || subs.length < 2;
     if (!subs || subs.length < 2) { el.innerHTML = ''; return; }
     el.innerHTML = subs.map((s) => `<a href="#/${top}/${s}"${s === leaf ? ' aria-current="page"' : ''}>${LO.esc(LO.t('app.sub.' + s))}</a>`).join('');
+    // On narrow screens the tabs scroll sideways; keep the current one in view.
+    const cur = $('[aria-current]', el);
+    if (cur) el.scrollLeft = Math.max(0, cur.offsetLeft - el.offsetLeft - 16);
   }
   function show() {
     const { top, leaf, print } = parseHash();

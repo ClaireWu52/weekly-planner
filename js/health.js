@@ -24,7 +24,7 @@
       qualities: ['不太好', '一般', '很好'], saveSleep: '记录', sleepLogged: '已记录睡眠', sleepGoal: '目标（小时）',
       last14: '近 14 天（小时）', hoursLine: (h) => `${h} 小时`,
       moodTitle: '心情', moods: ['很差', '不太好', '一般', '不错', '很好'], moodNotePh: '想记一句今天的事吗？', last5w: '近 5 周',
-      checkTitle: '健康打卡', checkEmpty: '“健康”分类的每日任务会出现在这里。', openTasks: '去任务页添加',
+      checkTitle: '每日任务 · 健康类', checkHint: '和任务页的每日任务是同一份，在这里打勾那边也会勾上。', checkEmpty: '“健康”分类的每日任务会出现在这里。', openTasks: '在任务页管理',
       breathTitle: '呼吸放松', breathSub: '跟着圆圈呼吸一分钟：吸气 4 秒，屏息 4 秒，呼气 6 秒。',
       start: '开始', stop: '停止', inhale: '吸气', hold: '屏息', exhale: '呼气', breathDone: '做完了。慢慢回到手上的事。',
       routines: '训练组', routineHint: '点一个训练组，下面会自动填好动作、时长和强度，再按今天实际改。', newRoutine: '新建训练组', editRoutine: '编辑训练组',
@@ -58,7 +58,7 @@
       qualities: ['Poor', 'Okay', 'Great'], saveSleep: 'Log it', sleepLogged: 'Sleep logged', sleepGoal: 'Goal (hours)',
       last14: 'Last 14 days (hours)', hoursLine: (h) => `${h} h`,
       moodTitle: 'Mood', moods: ['Awful', 'Low', 'Okay', 'Good', 'Great'], moodNotePh: 'A line about today?', last5w: 'Last 5 weeks',
-      checkTitle: 'Health check-ins', checkEmpty: 'Dailies in the Health category show up here.', openTasks: 'Add on Tasks',
+      checkTitle: 'Dailies · Health', checkHint: 'These are your Health dailies from Tasks. Checking one here checks it there too.', checkEmpty: 'Dailies in the Health category show up here.', openTasks: 'Manage on Tasks',
       breathTitle: 'Breathe', breathSub: 'Follow the circle for a minute: in for 4, hold for 4, out for 6.',
       start: 'Start', stop: 'Stop', inhale: 'Breathe in', hold: 'Hold', exhale: 'Breathe out', breathDone: 'Done. Ease back into your day.',
       routines: 'Workout groups', routineHint: 'Tap a group to fill in exercises, length and intensity, then adjust to what you actually did.', newRoutine: 'New group', editRoutine: 'Edit group',
@@ -522,7 +522,7 @@
   function checkCard() {
     const list = LO.tasks ? LO.tasks.dueDailiesBy('health') : [];
     return `<section class="card hcard"><header class="card-head"><h2>${esc(t('checkTitle'))}</h2><a class="link" href="#/tasks">${esc(t('openTasks'))}</a></header>`
-      + (list.length ? `<ul class="tlist compact">${list.map((d) => LO.tasks.dailyRow(d, true)).join('')}</ul>` : `<p class="empty-note">${esc(t('checkEmpty'))}</p>`)
+      + (list.length ? `<p class="hint check-hint">${esc(t('checkHint'))}</p><ul class="tlist compact">${list.map((d) => LO.tasks.dailyRow(d, true)).join('')}</ul>` : `<p class="empty-note">${esc(t('checkEmpty'))}</p>`)
       + '</section>';
   }
 

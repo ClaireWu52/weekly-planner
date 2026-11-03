@@ -285,8 +285,8 @@
   function monthCard() {
     if (!LO.plan) return '';
     const m = LO.plan.thisMonthHTML();
-    if (!m.count) return tuck(t('month'), '#/goals/plan');
-    return `<section class="card o8"><header class="card-head"><h2>${esc(t('month'))}<span class="count">${m.done}/${m.count}</span></h2><a class="link" href="#/goals/plan">${esc(t('openPlan'))}</a></header>`
+    if (!m.count) return tuck(t('month'), '#/growth/plan');
+    return `<section class="card o8"><header class="card-head"><h2>${esc(t('month'))}<span class="count">${m.done}/${m.count}</span></h2><a class="link" href="#/growth/plan">${esc(t('openPlan'))}</a></header>`
       + `${m.html}</section>`;
   }
 
@@ -300,8 +300,8 @@
 
   function wishesCard() {
     const list = LO.wishes.top(3);
-    if (!list.length) return tuck(t('wishes'), '#/goals/wishes');
-    return `<section class="card o10"><header class="card-head"><h2>${esc(t('wishes'))}</h2><a class="link" href="#/goals/wishes">${esc(t('openWishes'))}</a></header>`
+    if (!list.length) return tuck(t('wishes'), '#/growth/wishes');
+    return `<section class="card o10"><header class="card-head"><h2>${esc(t('wishes'))}</h2><a class="link" href="#/growth/wishes">${esc(t('openWishes'))}</a></header>`
       + `<ul class="wish-mini">${list.map(({ w, p }) => `<li class="${LO.wishes.catClass(w.cat)}"><div class="wm-top"><b>${esc(w.title)}</b><span>${p.ready ? esc(LO.t('wishes.ready')) : esc(p.label)}</span></div><div class="progress sm"><span style="width:${p.pct * 100}%"></span></div></li>`).join('')}</ul></section>`;
   }
 
@@ -337,6 +337,7 @@
     const greet = t('greet')(now.getHours());
     quiet = [];
     let h = `<div class="view-head"><div><h1>${esc(LO.dateLine(now))}</h1><p class="sub">${esc(streak >= 2 ? t('streak')(greet.replace(/[。.]$/, ''), streak) : greet)}</p></div></div>`;
+    if (LO.review) h += LO.review.nudgeHTML();
     h += '<div class="today-grid">';
     h += `<div class="tcol-a">${tripCard()}${card('schedule')}${card('timer')}</div>`;
     h += `<div class="tcol-b">${card('focus')}${card('dailies')}${card('upcoming')}</div>`;
@@ -354,6 +355,10 @@
   LO.tasks.attach(view);
   if (LO.plan) LO.plan.attachMonths(view);
   view.addEventListener('click', (e) => {
+    const ro = e.target.closest('[data-ropen]');
+    if (ro) { LO.review.open(+ro.dataset.ropen); return; }
+    const rs = e.target.closest('[data-rskip]');
+    if (rs) { LO.review.skip(rs.dataset.rskip); return; }
     const ot = e.target.closest('[data-opentrip]');
     if (ot) { LO.travel.show(ot.dataset.opentrip); return; }
     const w = e.target.closest('[data-water]');
