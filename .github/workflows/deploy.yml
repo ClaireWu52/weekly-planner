@@ -36,6 +36,9 @@ jobs:
       - name: Fetch today's news
         run: python scripts/fetch_news.py
         continue-on-error: true
+      # give each script and stylesheet a versioned address so a page never mixes old and new files
+      - name: Stamp file versions
+        run: node scripts/stamp_versions.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
