@@ -1,4 +1,4 @@
-# Builds and publishes the site to GitHub Pages.
+# Tests, builds and publishes the site to GitHub Pages.
 # Runs on every push to main, twice a day to refresh the news, and on demand.
 name: Deploy site
 
@@ -27,6 +27,9 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      # stop here, without publishing, if any test fails (Node comes with the runner)
+      - name: Run tests
+        run: node tests/run.js
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
