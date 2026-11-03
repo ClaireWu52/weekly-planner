@@ -48,6 +48,11 @@
       theme: ['auto', 'light', 'dark'].includes(legacy.theme) ? legacy.theme : 'auto'
     };
   }
+  // Health used to be a single page; if it was hidden, hide all three of its tabs.
+  if (!settings.healthTabs) {
+    if (Array.isArray(settings.hidden) && settings.hidden.includes('health')) settings.hidden.push('rest', 'calm');
+    settings.healthTabs = true;
+  }
   const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (_) { /* ignore */ } };
   saveSettings();
   LO.lang = () => settings.lang;
@@ -115,7 +120,7 @@
     zh: {
       brand: '我的计划本',
       nav: { today: '今天', tasks: '任务', schedule: '课表', health: '健康', growth: '成长', life: '生活' },
-      sub: { today: '今日概览', news: '今日新闻', plan: '年度目标', wishes: '心愿清单', learn: '学习清单', records: '成长记录', review: '每周回顾', food: '吃什么', wardrobe: '电子衣橱', travel: '旅游攻略' },
+      sub: { today: '今日概览', news: '今日新闻', health: '运动', rest: '作息', calm: '放松', plan: '年度目标', wishes: '心愿清单', learn: '学习清单', records: '成长记录', review: '每周回顾', food: '吃什么', wardrobe: '电子衣橱', travel: '旅游攻略' },
       customize: '自定义页面', custHint: '取消勾选的页面会从导航里隐藏，数据不会删除，随时可以再打开。今日概览不能隐藏。', custToday: '今日概览里的卡片', custSaved: '导航已更新',
       sync: '同步设置', calendar: '导出到日历', install: '装到手机桌面', installTitle: '装到手机桌面', ok: '知道了',
       installHow: ['iPhone：用 Safari 打开网站，点底部的“分享”按钮，选“添加到主屏幕”。', 'Android：用 Chrome 打开网站，点右上角的 ⋮，选“安装应用”或“添加到主屏幕”。', '电脑：用 Chrome 或 Edge 打开网站，点地址栏右侧的安装图标。', '装好之后，从桌面图标打开就像一个 App，没网时也能看已有的内容。'],
@@ -127,7 +132,7 @@
     en: {
       brand: 'My Planner',
       nav: { today: 'Today', tasks: 'Tasks', schedule: 'Schedule', health: 'Health', growth: 'Growth', life: 'Life' },
-      sub: { today: 'Overview', news: 'News', plan: 'Yearly goals', wishes: 'Wishes', learn: 'Learning', records: 'Growth log', review: 'Weekly review', food: 'What to eat', wardrobe: 'Wardrobe', travel: 'Travel' },
+      sub: { today: 'Overview', news: 'News', health: 'Exercise', rest: 'Daily rhythm', calm: 'Unwind', plan: 'Yearly goals', wishes: 'Wishes', learn: 'Learning', records: 'Growth log', review: 'Weekly review', food: 'What to eat', wardrobe: 'Wardrobe', travel: 'Travel' },
       customize: 'Customize pages', custHint: 'Unchecked pages are hidden from the navigation. Nothing is deleted, and you can turn them back on anytime. Overview cannot be hidden.', custToday: 'Cards on Overview', custSaved: 'Navigation updated',
       sync: 'Sync settings', calendar: 'Export to calendar', install: 'Install on phone', installTitle: 'Install on your phone', ok: 'Got it',
       installHow: ['iPhone: open the site in Safari, tap Share at the bottom, then "Add to Home Screen".', 'Android: open the site in Chrome, tap ⋮ at the top right, then "Install app" or "Add to Home screen".', 'Computer: open the site in Chrome or Edge and click the install icon on the right of the address bar.', 'Once installed, it opens from the icon like an app and still shows your data offline.'],
@@ -240,13 +245,13 @@
   // Top-level pages in the nav. "growth" holds the long-term pages (goals, wishes,
   // learning, growth log, weekly review); old #/goals links still land there.
   const NAV = ['today', 'tasks', 'schedule', 'health', 'growth', 'life'];
-  const GROUPS = { today: ['today', 'news'], growth: ['plan', 'wishes', 'learn', 'records', 'review'], life: ['food', 'wardrobe', 'travel'] };
-  const PARENT = { news: 'today', plan: 'growth', wishes: 'growth', learn: 'growth', records: 'growth', review: 'growth', food: 'life', wardrobe: 'life', travel: 'life' };
+  const GROUPS = { today: ['today', 'news'], health: ['health', 'rest', 'calm'], growth: ['plan', 'wishes', 'learn', 'records', 'review'], life: ['food', 'wardrobe', 'travel'] };
+  const PARENT = { news: 'today', rest: 'health', calm: 'health', plan: 'growth', wishes: 'growth', learn: 'growth', records: 'growth', review: 'growth', food: 'life', wardrobe: 'life', travel: 'life' };
   const hiddenList = () => (Array.isArray(settings.hidden) ? settings.hidden : []);
   const visibleSubs = (top) => GROUPS[top].filter((x) => x === 'today' || !hiddenList().includes(x));
   const topVisible = (top) => (GROUPS[top] ? visibleSubs(top).length > 0 : !hiddenList().includes(top));
   const visibleNav = () => NAV.filter(topVisible);
-  const lastSub = { today: 'today', growth: 'plan', life: 'food' };
+  const lastSub = { today: 'today', health: 'health', growth: 'plan', life: 'food' };
   const views = {};
   let current = null;
   LO.view = (name, def) => { views[name] = def; };

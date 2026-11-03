@@ -264,13 +264,13 @@
     const mood = Hh.moodToday();
     const slept = Hh.sleepHours(LO.todayKey());
     const moods = LO.t('health.moods');
-    return `<section class="card o4"><header class="card-head"><h2>${esc(t('health'))}</h2><a class="link" href="#/health">${esc(t('openHealth'))}</a></header>`
+    return `<section class="card o4"><header class="card-head"><h2>${esc(t('health'))}</h2><a class="link" href="#/health/rest">${esc(t('openHealth'))}</a></header>`
       + `<div class="mini-row"><span class="mini-label">${esc(t('water'))}</span><button type="button" class="icon-btn sm" data-water="-1" aria-label="-1">${LO.icon.minus}</button>`
       + `<span class="mini-val"><b>${cups}</b> / ${S.water.goal} ${esc(tc('cups'))}</span><button type="button" class="icon-btn sm" data-water="1" aria-label="+1">${LO.icon.plus}</button>`
       + `<span class="mini-bar"><span style="width:${LO.clamp(cups / S.water.goal, 0, 1) * 100}%"></span></span></div>`
       + `<div class="mini-row"><span class="mini-label">${esc(t('mood'))}</span><span class="mini-moods">${[1, 2, 3, 4, 5].map((v) => `<button type="button" class="mood-btn sm${mood && mood.v === v ? ' on' : ''}" data-mood="${v}" aria-pressed="${!!(mood && mood.v === v)}" aria-label="${esc(moods[v - 1])}" title="${esc(moods[v - 1])}">${Hh.face(v, 28)}</button>`).join('')}</span></div>`
       + `<p class="mini-line">${esc(t('exercise')(Hh.weekMinutes(), S.workoutGoal))}</p>`
-      + `<p class="mini-line">${slept != null ? esc(t('slept')(slept)) : `<a class="link" href="#/health">${esc(t('logSleep'))}</a>`}</p>`
+      + `<p class="mini-line">${slept != null ? esc(t('slept')(slept)) : `<a class="link" href="#/health/rest">${esc(t('logSleep'))}</a>`}</p>`
       + '</section>';
   }
 
@@ -317,7 +317,7 @@
     { id: 'focus', label: 'focusTitle', html: focusCard },
     { id: 'dailies', label: 'dailies', html: dailiesCard },
     { id: 'upcoming', label: 'upcoming', page: 'tasks', html: upcomingCard },
-    { id: 'health', label: 'health', page: 'health', html: healthCard },
+    { id: 'health', label: 'health', page: 'rest', html: healthCard },
     { id: 'habits', label: 'habits', page: 'tasks', html: habitsCard },
     { id: 'month', label: 'month', page: 'plan', html: monthCard },
     { id: 'news', label: 'news', page: 'news', html: newsCard },

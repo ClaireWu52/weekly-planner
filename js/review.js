@@ -18,7 +18,7 @@
       reflect: '写写这一周', wins: '这周做得好的事', winsPh: '哪怕是很小的事，比如按时交了作业、去了健身房', hard: '遇到的困难', hardPh: '什么让你卡住了？下次可以怎么做？',
       learned: '学到了什么', learnedPh: '一个新知识、一个想法或者对自己的新认识', energy: '这周整体状态', energies: ['很累', '有点累', '一般', '不错', '很好'],
       nextTitle: '下周最重要的三件事', nextPh: (i) => `第 ${i} 件`, push: '加到下周的待办', pushed: '已经加进待办了', pushedToast: (n) => `已把 ${n} 件事加到下周的待办`,
-      nothingToPush: '先写下至少一件事。', saved: '自动保存', past: '以前的回顾', planWorkout: '去排下周运动', promptTitle: (w) => `该写${w}的回顾了`, promptText: '花五分钟回顾这一周，定下下周的三件重点。', promptBtn: '开始回顾', promptSkip: '这次不写'
+      nothingToPush: '先写下至少一件事。', saved: '自动保存', past: '以前的回顾', planWorkout: '运动详情和下周计划', promptTitle: (w) => `该写${w}的回顾了`, promptText: '花五分钟回顾这一周，定下下周的三件重点。', promptBtn: '开始回顾', promptSkip: '这次不写'
     },
     en: {
       title: 'Weekly review', prev: 'Previous week', next: 'Next week', thisWeek: 'This week', lastWeek: 'Last week',
@@ -30,7 +30,7 @@
       reflect: 'Reflect on the week', wins: 'What went well', winsPh: 'Even small things, like handing in work on time or going to the gym', hard: 'What was hard', hardPh: 'What got you stuck? What would you try next time?',
       learned: 'What I learned', learnedPh: 'Something new, an idea, or something about yourself', energy: 'Overall energy', energies: ['Drained', 'Tired', 'Okay', 'Good', 'Great'],
       nextTitle: "Next week's top three", nextPh: (i) => `Priority ${i}`, push: "Add to next week's to-dos", pushed: 'Already added to to-dos', pushedToast: (n) => `Added ${n} to next week's to-dos`,
-      nothingToPush: 'Write at least one first.', saved: 'Saved automatically', past: 'Past reviews', planWorkout: "Plan next week's workouts", promptTitle: (w) => `Time to review ${w.toLowerCase()}`, promptText: 'Take five minutes to look back and pick three priorities for next week.', promptBtn: 'Start review', promptSkip: 'Not this time'
+      nothingToPush: 'Write at least one first.', saved: 'Saved automatically', past: 'Past reviews', planWorkout: "Exercise details and next week's plan", promptTitle: (w) => `Time to review ${w.toLowerCase()}`, promptText: 'Take five minutes to look back and pick three priorities for next week.', promptBtn: 'Start review', promptSkip: 'Not this time'
     }
   });
   const t = LO.ns('review');
@@ -129,7 +129,7 @@
       : `<p class="hint">${esc(t('scheduleEmpty'))}</p>`);
     if (s.ex) {
       h += card(t('exercise'), `<p class="rv-big">${esc(t('exLine')(s.ex.n, s.ex.min, s.ex.days))}</p><div class="progress sm k-health"><span style="width:${Math.min(1, s.ex.min / s.exGoal) * 100}%"></span></div><p class="hint">${esc(t('goal')(s.exGoal))}</p>`
-        + `<a class="link" href="#/health">${esc(t('planWorkout'))}</a>`);
+        + `<a class="link" href="#/health/health">${esc(t('planWorkout'))}</a>`);
       h += card(t('body'), `<p class="rv-big">${esc(s.sleep != null ? t('sleepAvg')(s.sleep) : t('noSleep'))}</p><p>${esc(t('water')(s.water))}</p>`);
       h += card(t('mood'), `<div class="rv-moods">${s.moods.map((m, i) => `<span class="rv-mood"><small>${esc(LO.t('common.daysShort')[i])}</small>${m ? LO.health.face(m.v, 28) : '<i class="rv-nomood"></i>'}</span>`).join('')}</div>`);
     }

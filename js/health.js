@@ -1,6 +1,8 @@
 /*
- * Health page: workouts, water, sleep, mood, health check-ins and a
- * one-minute breathing exercise.
+ * Health pages, three tabs under one nav button:
+ *   health  (Exercise): log workouts, this week's summary, workout plan
+ *   rest    (Daily rhythm): sleep, water, Health dailies
+ *   calm    (Unwind): mood and a one-minute breathing exercise
  */
 (() => {
   'use strict';
@@ -243,7 +245,10 @@
   }
 
   /* ---------------- page ---------------- */
-  const view = $('#view-health');
+  const VIEWS = { health: $('#view-health'), rest: $('#view-rest'), calm: $('#view-calm') };
+  const TAB_OF = { 'hw-workout': 'health', 'hw-water': 'rest', 'hw-sleep': 'rest', 'hw-mood': 'calm' };
+  let part = 'health';
+  let view = VIEWS.health;
   const draft = { date: '', types: [], min: '', level: 2, note: '', routine: '', items: [] };
   let planOffset = 1;
   function applyRoutine(r) {
@@ -262,7 +267,8 @@
     + `<button type="button" class="icon-btn sm ghost" data-exdel aria-label="${esc(tc('delete'))}">${LO.icon.x}</button></div>`;
   const sdraft = { date: '', bed: '23:30', wake: '07:30', q: 2 };
 
-  function render() {
+  function render(which) {
+    if (which) { part = which; view = VIEWS[which]; }
     const now = new Date();
     const today = LO.todayKey();
     if (!draft.date) draft.date = today;
@@ -283,28 +289,19 @@
       + `<button type="button" class="stat" data-scroll="hw-mood">${mood ? face(mood.v, 40) : ''}<div><span class="stat-label">${esc(t('sMood'))}</span><b class="stat-num">${mood ? esc(t('moods')[mood.v - 1]) : `<small>${esc(t('notLogged'))}</small>`}</b></div></button>`
       + '</div>';
 
-    h += '<div class="health-grid"><div class="hcol">';
-    h += workoutCard();
-    h += planCard();
-    h += summaryCard();
-    h += '</div><div class="hcol">';
-    h += waterCard(cups);
-    h += sleepCard();
-    h += moodCard(mood);
-    h += checkCard();
-    h += breathCard();
-    h += '</div></div>';
+    const cols = {
+      health: [workoutCard(), summaryCard() + planCard()],
+      rest: [sleepCard(), waterCard(cups) + checkCard()],
+      calm: [moodCard(mood), breathCard()]
+    }[part];
+    h += `<div class="health-grid"><div class="hcol">${cols[0]}</div><div class="hcol">${cols[1]}</div></div>`;
     view.innerHTML = h;
     paintBreath();
   }
 
   function workoutCard() {
     const S = H.s;
-    const wk = weekMinutes();
-    let h = `<section class="card hcard" id="hw-workout"><header class="card-head"><h2>${esc(t('wTitle'))}</h2>`
-      + `<label class="mini-field">${esc(t('weekGoal'))}<input type="number" min="10" max="2000" step="10" class="input sm num" data-goal="workout" value="${S.workoutGoal}"></label></header>`;
-    h += `<div class="progress"><span style="width:${LO.clamp(wk / S.workoutGoal, 0, 1) * 100}%"></span></div>`
-      + `<p class="progress-label">${wk} / ${S.workoutGoal} ${esc(tc('min'))}</p>`;
+    let h = `<section class="card hcard" id="hw-workout"><header class="card-head"><h2>${esc(t('wTitle'))}</h2></header>`;
     h += `<div class="routine-bar"><span class="lbl">${esc(t('routines'))}</span>`
       + S.routines.map((r) => `<span class="rt${draft.routine === r.name ? ' on' : ''}"><button type="button" class="rt-pick" data-rt="${esc(r.id)}">${esc(r.name)}</button>`
         + `<button type="button" class="rt-edit" data-rtedit="${esc(r.id)}" aria-label="${esc(t('editRoutine'))}" title="${esc(t('editRoutine'))}">✎</button></span>`).join('')
@@ -351,7 +348,11 @@
     const prev = weekStats(-1);
     const maxT = Math.max(1, ...Object.values(cur.byType));
     const top = Object.entries(cur.ex).sort((a, b) => b[1].n - a[1].n || b[1].sets - a[1].sets).slice(0, 5);
-    let h = `<section class="card hcard" id="hw-summary"><header class="card-head"><h2>${esc(t('summary'))}</h2></header>`
+    const goal = H.s.workoutGoal;
+    let h = `<section class="card hcard" id="hw-summary"><header class="card-head"><h2>${esc(t('summary'))}</h2>`
+      + `<label class="mini-field">${esc(t('weekGoal'))}<input type="number" min="10" max="2000" step="10" class="input sm num" data-goal="workout" value="${goal}"></label></header>`
+      + `<div class="progress"><span style="width:${LO.clamp(cur.min / goal, 0, 1) * 100}%"></span></div>`
+      + `<p class="progress-label">${cur.min} / ${goal} ${esc(tc('min'))}</p>`
       + `<p class="sum-line"><b>${esc(t('sumLine')(cur.n, cur.min, cur.days))}</b><span class="hint">${esc(t('vsLast')(cur.min - prev.min))}</span></p>`;
     const types = Object.entries(cur.byType).sort((a, b) => b[1] - a[1]);
     if (types.length) {
@@ -534,9 +535,10 @@
   }
 
   /* ---------------- events ---------------- */
-  if (LO.tasks) LO.tasks.attach(view);
+  const on = (type, fn) => Object.values(VIEWS).forEach((v) => v.addEventListener(type, fn));
+  if (LO.tasks) Object.values(VIEWS).forEach((v) => LO.tasks.attach(v));
 
-  view.addEventListener('click', (e) => {
+  on('click', (e) => {
     const rt = e.target.closest('[data-rt]');
     if (rt) { const r = H.s.routines.find((x) => x.id === rt.dataset.rt); if (r) { applyRoutine(r); render(); } return; }
     const rte = e.target.closest('[data-rtedit]');
@@ -556,7 +558,13 @@
     if (pw) { planOffset = +pw.dataset.pw; render(); return; }
     if (e.target.closest('[data-padd]')) { addPlanToSchedule(); return; }
     const sc = e.target.closest('[data-scroll]');
-    if (sc) { const el = document.getElementById(sc.dataset.scroll); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    if (sc) {
+      const id = sc.dataset.scroll;
+      const go = () => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+      // another tab: scroll once the router has shown it (its listener runs first)
+      if (TAB_OF[id] !== part) { window.addEventListener('hashchange', go, { once: true }); LO.go(TAB_OF[id]); } else go();
+      return;
+    }
     const w = e.target.closest('[data-water]');
     if (w) { addWater(+w.dataset.water); return; }
     const cup = e.target.closest('[data-cup]');
@@ -575,7 +583,7 @@
     if (e.target.closest('[data-breath]')) { if (breath.running) stopBreath(false); else startBreath(); }
   });
 
-  view.addEventListener('input', (e) => {
+  on('input', (e) => {
     const el = e.target;
     const exRowEl = el.closest('[data-exrows="draft"] .ex-row');
     if (exRowEl && el.dataset.f) {
@@ -595,7 +603,7 @@
     }
   });
 
-  view.addEventListener('change', (e) => {
+  on('change', (e) => {
     const el = e.target;
     if (el.dataset.pday != null || el.dataset.ptime != null) {
       const { a } = weekRange(planOffset);
@@ -626,7 +634,7 @@
     }
   });
 
-  view.addEventListener('submit', (e) => {
+  on('submit', (e) => {
     const f = e.target.closest('[data-form]');
     if (!f) return;
     e.preventDefault();
@@ -654,7 +662,7 @@
     }
   });
 
-  LO.view('health', { render });
+  Object.keys(VIEWS).forEach((k) => LO.view(k, { render: () => render(k) }));
 
   /* ---------------- API ---------------- */
   LO.health = {
