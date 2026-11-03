@@ -24,7 +24,7 @@
       langSwitch: 'English', theme: '外观', themeNames: { auto: '跟随系统', light: '浅色', dark: '深色' },
       shortcuts: '快捷键',
       hoursTitle: '本周时间', total: '合计', hoursEmpty: '这周还没有安排。', hoursUnit: ' 小时',
-      todoTitle: '本周待办', todoPh: '添加待办，回车保存', todoEmpty: '这周没有到期的待办。', openTasks: '全部待办', add: '添加',
+      dueTag: (n) => `截止 ${n}`, dueTip: (list) => `这天截止：${list}`, todoTitle: '本周待办', todoPh: '添加待办，回车保存', todoEmpty: '这周没有到期的待办。', openTasks: '全部待办', add: '添加',
       notesTitle: '备注', notesPh: '这周要记住的事…',
       viewRange: '显示时段', to: '到',
       skipped: '本周跳过了：', restore: '恢复',
@@ -66,7 +66,7 @@
       langSwitch: '中文', theme: 'Appearance', themeNames: { auto: 'System', light: 'Light', dark: 'Dark' },
       shortcuts: 'Keyboard shortcuts',
       hoursTitle: 'Hours this week', total: 'Total', hoursEmpty: 'Nothing scheduled this week.', hoursUnit: ' h',
-      todoTitle: 'To-dos this week', todoPh: 'Add a to-do, press Enter', todoEmpty: 'Nothing due this week.', openTasks: 'All to-dos', add: 'Add',
+      dueTag: (n) => `${n} due`, dueTip: (list) => `Due this day: ${list}`, todoTitle: 'To-dos this week', todoPh: 'Add a to-do, press Enter', todoEmpty: 'Nothing due this week.', openTasks: 'All to-dos', add: 'Add',
       notesTitle: 'Notes', notesPh: 'Anything to remember this week…',
       viewRange: 'Visible hours', to: 'to',
       skipped: 'Skipped this week:', restore: 'Restore',
@@ -387,7 +387,10 @@
     c.days.forEach((d) => {
       const dt = addDays(c.monday, d);
       const today = c.todayKey === keyOf(dt);
-      h += `<div class="g-dayhead${today ? ' is-today' : ''}"><span class="dn">${L().days[d]}</span><span class="dd">${dt.getMonth() + 1}/${dt.getDate()}</span></div>`;
+      // open to-dos due that day, on screen only (not in print)
+      const due = c.interactive && LO.tasks ? LO.tasks.openTodos().filter((x) => x.due === keyOf(dt)) : [];
+      const tag = due.length ? `<button type="button" class="dh-due" data-due="${keyOf(dt)}" title="${esc(t('dueTip')(due.map((x) => x.title).join(LO.lang() === 'zh' ? '、' : ', ')))}">${esc(t('dueTag')(due.length))}</button>` : '';
+      h += `<div class="g-dayhead${today ? ' is-today' : ''}"><span class="dn">${L().days[d]}</span><span class="dd">${dt.getMonth() + 1}/${dt.getDate()}</span>${tag}</div>`;
     });
     h += `</div><div class="g-body"${c.bodyH ? ` style="height:${c.bodyH}px"` : ''}>`;
     h += '<div class="g-times">';
@@ -1049,6 +1052,15 @@
       }, t('moved'));
     }
   }
+
+  // the "N due" tag on a day: one to-do opens it, several open the Tasks page
+  gridEl.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-due]');
+    if (!b) return;
+    const due = LO.tasks.openTodos().filter((x) => x.due === b.dataset.due);
+    if (due.length === 1) LO.tasks.openEditor('todo', due[0].id);
+    else LO.go('tasks');
+  });
 
   gridEl.addEventListener('keydown', (e) => {
     const evEl = e.target.closest('.ev');

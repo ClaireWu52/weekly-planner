@@ -245,6 +245,11 @@ main { padding: 18px clamp(14px, 3vw, 32px) 40px; }
 }
 .g-dayhead .dd { font-size: 13px; font-weight: 400; color: var(--muted); font-variant-numeric: tabular-nums; }
 .g-dayhead.is-today .dd { background: var(--now); color: #fff; border-radius: 999px; padding: 0 7px; font-weight: 600; }
+.dh-due {
+  margin-left: auto; padding: 1px 7px; border: 0; border-radius: 999px; flex: none;
+  background: var(--seg); color: var(--ink); font-size: 11.5px; font-weight: 600; cursor: pointer;
+}
+.dh-due:hover { background: var(--hover); }
 .g-body { position: relative; }
 .g-times { position: sticky; left: 0; z-index: 4; background: var(--surface); }
 .g-times span {
