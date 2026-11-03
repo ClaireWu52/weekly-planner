@@ -368,7 +368,7 @@
       const c = Ls.s.courses.find((x) => x.id === id);
       if (!c) return null;
       c.focusMin += min;
-      Ls.saveNow();
+      Ls.save(); // save() marks the change so sync picks it up; saveNow() alone does not
       return c;
     },
     booksSince: (k) => Ls.s.books.filter((b) => b.status === 'done' && b.finished >= k).length,

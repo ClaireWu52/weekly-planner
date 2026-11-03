@@ -181,17 +181,35 @@
     return msg;
   }
 
+  // Upload this device's sections. A section another device changed more recently is
+  // kept as it is in the cloud (not overwritten), then pulled here.
   async function push() {
     if (!enabled() || busy) return;
     busy = true;
     setStatus('syncing');
+    const behind = [];
     try {
-      await writeGist(await encrypt(localBundle()));
+      const bundle = localBundle();
+      const text = cfg.gistId ? await readGist() : null;
+      if (text) {
+        const remote = await decrypt(text);
+        const rs = remote.stamps || {};
+        parts().forEach(({ name }) => {
+          if ((rs[name] || 0) > (bundle.stamps[name] || 0) && remote.parts && remote.parts[name] != null) {
+            bundle.parts[name] = remote.parts[name];
+            bundle.stamps[name] = rs[name];
+            behind.push(name);
+          }
+        });
+      }
+      await writeGist(await encrypt(bundle));
       cfg.lastSync = Date.now();
       saveCfg();
       setStatus('ok');
     } catch (e) { fail(e); return; } finally { busy = false; }
-    if (LO.syncPhotos) LO.syncPhotos();
+    // catch up first; photos sync after the pull, once the wardrobe here is current
+    if (behind.length) pull();
+    else if (LO.syncPhotos) LO.syncPhotos();
   }
   function schedulePush() {
     if (!enabled()) return;

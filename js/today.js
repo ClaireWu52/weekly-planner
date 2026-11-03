@@ -132,7 +132,7 @@
       const k = LO.todayKey();
       const mins = F.s.work;
       F.s.days[k] = { n: ((F.s.days[k] || {}).n || 0) + 1, min: ((F.s.days[k] || {}).min || 0) + mins };
-      F.saveNow();
+      F.save(); // marks the change so the session also syncs to other devices
       const course = focusCourse() ? LO.learn.addFocus(focusCourse(), mins) : null;
       resetTimer('brk');
       LO.toast(course ? t('workDoneFor')(course.title) : t('workDone'), [{ label: t('startBreak'), run: startTimer }], 10000);
@@ -357,7 +357,7 @@
       : t('streakKeep')(st.cur);
     quiet = [];
     let h = `<div class="view-head"><div><h1>${esc(LO.dateLine(now))}</h1><p class="sub">${esc(greet)}</p>`
-      + (streak ? `<a class="streak-pill${st.today ? ' is-on' : ''}" href="#/growth/records" title="${esc(t('streakTip'))}">${esc(streak)}</a>` : '') + '</div></div>';
+      + (streak ? `<${LO.pageShown('records') ? 'a href="#/growth/records"' : 'span'} class="streak-pill${st.today ? ' is-on' : ''}" title="${esc(t('streakTip'))}">${esc(streak)}</${LO.pageShown('records') ? 'a' : 'span'}>` : '') + '</div></div>';
     if (LO.review) h += LO.review.nudgeHTML();
     h += '<div class="today-grid">';
     h += `<div class="tcol-a">${tripCard()}${card('schedule')}${card('timer')}</div>`;

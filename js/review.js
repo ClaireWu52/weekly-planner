@@ -218,7 +218,7 @@
   LO.review = {
     nudgeHTML() {
       const off = nudgeOffset();
-      if (off == null) return '';
+      if (off == null || !LO.pageShown('review')) return '';
       return `<section class="card review-nudge"><div><b>${esc(t('promptTitle')(off ? t('lastWeek') : t('thisWeek')))}</b><p>${esc(t('promptText'))}</p></div>`
         + `<button type="button" class="btn ghost" data-rskip="${range(off).a}">${esc(t('promptSkip'))}</button>`
         + `<button type="button" class="btn primary" data-ropen="${off}">${esc(t('promptBtn'))}</button></section>`;

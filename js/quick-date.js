@@ -59,8 +59,8 @@
     for (const [re, toDate, loose] of RULES) {
       const src = re.source;
       const fl = re.flags.includes('i') ? 'i' : '';
-      // date first: 「周五 交作业」 / 「明天考试」 / "fri essay"
-      const start = new RegExp(`^(?:${src})(?:\\s+${loose ? '|(?=[^\\sa-z0-9])' : ''})`, fl);
+      // date first: 「周五 交作业」 / 「明天考试」 / 「明天9点上课」 / "fri essay"
+      const start = new RegExp(`^(?:${src})(?:\\s+${loose ? '|(?=\\S)' : ''})`, fl);
       // date last: 「交作业 周五」 / 「交作业周五」 / "essay due fri"
       const end = new RegExp(`(?:\\s+${loose ? '|(?<=[^\\sa-z0-9])' : ''})${LEAD}(?:${src})$`, fl);
       for (const at of [start, end]) {

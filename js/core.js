@@ -251,6 +251,8 @@
   const visibleSubs = (top) => GROUPS[top].filter((x) => x === 'today' || !hiddenList().includes(x));
   const topVisible = (top) => (GROUPS[top] ? visibleSubs(top).length > 0 : !hiddenList().includes(top));
   const visibleNav = () => NAV.filter(topVisible);
+  // whether a page is switched on under ⋯ → Customize pages
+  LO.pageShown = (leaf) => (PARENT[leaf] ? visibleSubs(PARENT[leaf]).includes(leaf) : topVisible(leaf));
   const lastSub = { today: 'today', health: 'health', growth: 'plan', life: 'food' };
   const views = {};
   let current = null;

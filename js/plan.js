@@ -213,7 +213,7 @@
     return `<li class="mi${done ? ' is-done' : ''}${g ? ' k-' + g.cat : ''}" data-mi="${esc(x.id)}">`
       + `<label><input type="checkbox" data-mtoggle${done ? ' checked' : ''}><span>${esc(x.text)}</span></label>`
       + (g ? `<i class="mi-dot" title="${esc(g.title)}"></i>` : '')
-      + (done ? '' : x.todo ? `<span class="mi-linked">${LO.icon.check}${esc(t('linked'))}</span>` : `<button type="button" class="mi-todo" data-mtodo>${LO.icon.plus}${esc(t('toTodo'))}</button>`)
+      + (done ? '' : x.todo && (!x.todoId || linkedTodo(x)) ? `<span class="mi-linked">${LO.icon.check}${esc(t('linked'))}</span>` : `<button type="button" class="mi-todo" data-mtodo>${LO.icon.plus}${esc(t('toTodo'))}</button>`)
       + (canDelete ? `<button type="button" class="icon-btn sm ghost" data-mdel aria-label="${esc(tc('delete'))}">${LO.icon.x}</button>` : '')
       + '</li>';
   }

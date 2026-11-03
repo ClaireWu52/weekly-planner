@@ -10,6 +10,8 @@
 
   test('quickDate: today, tomorrow and the day after', () => {
     eq(at('今天交作业'), { title: '交作业', due: '2026-11-03' });
+    eq(at('明天9点上课'), { title: '9点上课', due: '2026-11-04' }, 'a time right after the date');
+    eq(at('周五3点交作业'), { title: '3点交作业', due: '2026-11-06' });
     eq(at('明天考试'), { title: '考试', due: '2026-11-04' });
     eq(at('后天 还书'), { title: '还书', due: '2026-11-05' });
     eq(at('大后天交报告'), { title: '交报告', due: '2026-11-06' });
