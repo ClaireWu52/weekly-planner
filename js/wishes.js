@@ -13,7 +13,7 @@
   LO.strings('wishes', {
     zh: {
       title: '心愿清单', intro: '给每个心愿绑一个目标。目标达成，就去兑现它。',
-      addPh: '写下一个心愿，比如：去听一场现场音乐会', add: '添加',
+      addPh: '比如：去听一场演唱会', add: '添加',
       all: '全部',
       cats: { experience: '体验', learn: '学习', thing: '想要的东西', travel: '旅行', health: '健康', other: '其他' },
       newWish: '新建心愿', editWish: '编辑心愿', wish: '心愿', goal: '解锁条件', goalPh: '比如：这学期每周运动三次',
@@ -28,7 +28,7 @@
     },
     en: {
       title: 'Wishes', intro: 'Tie every wish to a goal. Reach the goal, then make the wish happen.',
-      addPh: 'Write a wish, e.g. see a live concert', add: 'Add',
+      addPh: 'e.g. See a live concert', add: 'Add',
       all: 'All',
       cats: { experience: 'Experience', learn: 'Learning', thing: 'Something to get', travel: 'Travel', health: 'Health', other: 'Other' },
       newWish: 'New wish', editWish: 'Edit wish', wish: 'Wish', goal: 'Unlock condition', goalPh: 'e.g. Work out three times a week all semester',
