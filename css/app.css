@@ -245,6 +245,7 @@ button.stat:hover { border-color: var(--line-2); }
 .side .card-head h3 { margin: 0; }
 .side .tlist.compact { margin-bottom: 4px; }
 .tcol-head h2 { display: flex; align-items: center; margin: 0; font-size: 18px; font-weight: 600; }
+.tcol-sub { margin: 2px 0 10px; line-height: 1.45; }
 .clear-done { margin-top: 10px; }
 @media (max-width: 960px) {
   .mtabs { display: block; }

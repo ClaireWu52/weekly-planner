@@ -14,6 +14,9 @@
       title: '任务',
       habits: '习惯', dailies: '每日任务', todos: '待办',
       addHabit: '添加一个习惯', addDaily: '添加一个每日任务', addTodo: '添加一个待办',
+      habitsHint: '想多做或少做的事，不用每天打卡，做到就点 + 或 −。',
+      dailiesHint: '每天或固定几天要做一次的事，做完打勾，第二天重置。',
+      todosHint: '只做一次的事，可以设截止日期和子任务，做完就结束。',
       habitsEmpty: '习惯没有固定时间。做到一次好习惯就点 +，犯了坏习惯就点 −。',
       dailiesEmpty: '每日任务按你选的星期重复，第二天自动重置。',
       todosEmpty: '所有要做的事都放这里。加上截止日期，快到期的会排在最前面。',
@@ -43,6 +46,9 @@
       title: 'Tasks',
       habits: 'Habits', dailies: 'Dailies', todos: 'To-dos',
       addHabit: 'Add a habit', addDaily: 'Add a daily', addTodo: 'Add a to-do',
+      habitsHint: 'Things to do more or less of. No schedule; tap + or − whenever it happens.',
+      dailiesHint: 'Things to do once a day, or on set days. Tick them off; they reset tomorrow.',
+      todosHint: 'One-off things, with an optional due date and checklist. Done is done.',
       habitsEmpty: 'Habits have no schedule. Tap + when you do a good one, − when you slip.',
       dailiesEmpty: 'Dailies repeat on the weekdays you pick and reset every day.',
       todosEmpty: 'Everything you need to get done. Add a due date and it rises to the top as it gets close.',
@@ -499,16 +505,19 @@
     h += `<div class="task-cols" data-show="${mtab}">`;
 
     h += `<section class="tcol" data-col="habits"><header class="tcol-head"><h2>${esc(t('habits'))}<span class="count">${habits.length}</span></h2></header>`
+      + `<p class="hint tcol-sub">${esc(t('habitsHint'))}</p>`
       + quickAdd('habit', t('addHabit'))
       + (habits.length ? `<ul class="tlist">${habits.map((x) => habitRow(x)).join('')}</ul>` : `<p class="empty-note">${esc(t('habitsEmpty'))}</p>`)
       + '</section>';
 
     h += `<section class="tcol" data-col="dailies"><header class="tcol-head"><h2>${esc(t('dailies'))}<span class="count">${st.doneDailies}/${st.dueCount}</span></h2>${seg('dfilter', [['due', t('fDue')], ['all', t('fAll')]], dailyFilter)}</header>`
+      + `<p class="hint tcol-sub">${esc(t('dailiesHint'))}</p>`
       + quickAdd('daily', t('addDaily'))
       + (dailies.length ? `<ul class="tlist">${dailies.map((x) => dailyRow(x)).join('')}</ul>` : `<p class="empty-note">${esc(t('dailiesEmpty'))}</p>`)
       + '</section>';
 
     h += `<section class="tcol" data-col="todos"><header class="tcol-head"><h2>${esc(t('todos'))}<span class="count">${st.open}</span></h2>${seg('tfilter', [['active', t('fActive')], ['today', t('fToday')], ['done', t('fDone')]], todoFilter)}</header>`
+      + `<p class="hint tcol-sub">${esc(t('todosHint'))}</p>`
       + (todoFilter === 'done' ? '' : quickAdd('todo', t('addTodo')))
       + (todos.length ? `<ul class="tlist">${todos.map((x) => todoRow(x)).join('')}</ul>` : `<p class="empty-note">${esc(todoFilter === 'done' ? t('doneEmpty') : t('todosEmpty'))}</p>`)
       + (todoFilter === 'done' && todos.length ? `<button type="button" class="btn sm ghost clear-done" data-cleardone>${esc(t('clearDone'))}</button>` : '')
