@@ -805,6 +805,49 @@ button.stat:hover { border-color: var(--line-2); }
 .plan-add .plan-time-in { flex: 0 0 116px; }
 .ti-body .badge { margin-left: 6px; }
 .trip-today { border-top: 4px solid var(--life-bar); }
+.trip-tabs { flex-wrap: nowrap; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.trip-tabs button { white-space: nowrap; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; }
+.day-books { list-style: none; margin: 0 0 6px; padding: 8px 10px; border-radius: 9px; background: var(--life-bg); color: var(--life-ink); }
+.day-books li { display: flex; align-items: center; gap: 10px; padding: 3px 0; font-size: 14px; }
+.db-name { flex: 1; min-width: 0; font-weight: 500; overflow-wrap: anywhere; }
+.conf-chip { padding: 2px 8px; border: 1px dashed currentColor; border-radius: 6px; background: transparent; color: inherit; font-size: 12.5px; cursor: pointer; }
+.trip-actions { margin-bottom: 12px; }
+.book-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.booking { border-left: 4px solid var(--life-bar); }
+.bk-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--muted); }
+.bk-head .link-btn { color: var(--focus); font-size: 13px; }
+.bk-title { margin: 4px 0 2px; font-size: 18px; }
+.bk-title a { color: inherit; }
+.bk-route { margin: 0; font-weight: 500; }
+.bk-when { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 6px 0 0; font-size: 14px; font-variant-numeric: tabular-nums; }
+.bk-when small, .bk-conf small { color: var(--muted); font-size: 12px; }
+.bk-conf { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; margin-top: 10px; padding: 8px 10px; border-radius: 9px; background: var(--hover); }
+.bk-conf small { flex-basis: 100%; }
+.bk-conf b { flex: 1; min-width: 0; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bk-addr, .bk-note { margin: 8px 0 0; font-size: 13.5px; color: var(--muted); }
+.trip-stats { margin-bottom: 12px; }
+.trip-stats .stat-label { white-space: nowrap; }
+@media (max-width: 760px) { .trip-stats { grid-template-columns: 1fr; } }
+.trip-stats .progress { margin-top: 8px; }
+.trip-stats .progress span, .cat-bars .progress span { background: var(--life-bar); }
+.progress.over span { background: var(--danger) !important; }
+.stat-num.warn { color: var(--danger); }
+.exp-add select { height: 40px; flex: 0 1 auto; }
+.exp-add .exp-amt { flex: 0 1 120px; }
+.exp-split { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex-basis: 100%; }
+.exp-amts { display: flex; flex-direction: column; align-items: flex-end; text-align: right; font-variant-numeric: tabular-nums; }
+.exp-amts small { font-size: 12px; color: var(--muted); }
+.cat-bars, .settle { list-style: none; margin: 0; padding: 0; }
+.cat-bars li { display: grid; grid-template-columns: 64px 1fr auto; align-items: center; gap: 10px; padding: 5px 0; font-size: 14px; }
+.cat-bars b { font-variant-numeric: tabular-nums; }
+.settle li { padding: 6px 0; font-weight: 500; border-bottom: 1px solid var(--line); }
+.settle li:last-child { border-bottom: 0; }
+.pack-tools { margin-bottom: 10px; }
+.pack-tools select { height: 36px; flex: 0 1 auto; width: auto; }
+.share-opt { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: 14px; }
+.share-text { min-height: 260px; font-size: 13.5px; line-height: 1.6; white-space: pre; overflow: auto; }
+.rate-in { flex: 1; }
 
 /* ---------- auto check-in, customize, install ---------- */
 .auto-tag { padding: 0 7px; border-radius: 999px; background: var(--life-bg); color: var(--life-ink); font-size: 11.5px; }
