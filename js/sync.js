@@ -3,7 +3,8 @@
  * Everything is encrypted in the browser (AES-GCM, key from the sync password
  * via PBKDF2) before upload, so the gist only holds ciphertext.
  * Each section syncs on its own: the newer copy of each section wins.
- * Wardrobe photos are not synced (too large); they stay on each device.
+ * Wardrobe photos sync separately (sync-photos.js), into a second gist, when
+ * that's switched on.
  */
 (() => {
   'use strict';
@@ -25,7 +26,7 @@
       step2: '第 2 步：填进来', token: 'GitHub 令牌', tokenPh: 'ghp_ 开头的一串字符', pass: '同步密码', passPh: '自己设一个，至少 6 位',
       passHint: '数据会先用这个密码加密再上传，GitHub 上看不到内容。每台设备都要填同一个密码；忘了密码就解不开，只能关掉同步重新开始。',
       second: '在第二台设备上开启时，会以云端的数据为准。如果这台设备上有想保留的内容，先在 ⋯ 菜单里导出备份。',
-      photos: '衣橱照片太大，不参与同步，只存在各自的设备上。',
+      photosOn: '同步衣橱照片', photos: '照片会单独加密，放在另一个私密 Gist 里，只上传新加或换过的照片。照片多的话，第一次同步会慢一些，也会用掉一些手机流量。',
       on: '开启同步', save: '保存', off: '关闭同步', confirmOff: '确认关闭', now: '立即同步',
       st: { off: '未开启', syncing: '同步中…', ok: (s) => `已同步 ${s}`, error: (m) => `出错：${m}` },
       errToken: '请填写令牌。', errPass: '同步密码至少 6 位。', errAuth: '令牌无效，或者没有勾选 gist 权限。',
@@ -40,7 +41,7 @@
       step2: 'Step 2: paste it here', token: 'GitHub token', tokenPh: 'Starts with ghp_', pass: 'Sync password', passPh: 'Choose one, at least 6 characters',
       passHint: 'Your data is encrypted with this password before upload, so GitHub cannot read it. Use the same password on every device. If you forget it, the data cannot be decrypted; turn sync off and start again.',
       second: 'When you turn sync on for a second device, the cloud copy wins. Export a backup from the ⋯ menu first if this device has anything you want to keep.',
-      photos: 'Wardrobe photos are too large to sync and stay on each device.',
+      photosOn: 'Sync wardrobe photos', photos: 'Photos are encrypted and kept in a second private gist; only new or changed photos are sent. With many photos the first sync takes a while and uses some mobile data.',
       on: 'Turn on sync', save: 'Save', off: 'Turn off sync', confirmOff: 'Confirm', now: 'Sync now',
       st: { off: 'Off', syncing: 'Syncing…', ok: (s) => `Synced ${s}`, error: (m) => `Error: ${m}` },
       errToken: 'Add the token.', errPass: 'Use at least 6 characters.', errAuth: 'The token is invalid or missing the gist permission.',
@@ -189,7 +190,8 @@
       cfg.lastSync = Date.now();
       saveCfg();
       setStatus('ok');
-    } catch (e) { fail(e); } finally { busy = false; }
+    } catch (e) { fail(e); return; } finally { busy = false; }
+    if (LO.syncPhotos) LO.syncPhotos();
   }
   function schedulePush() {
     if (!enabled()) return;
@@ -240,9 +242,11 @@
       setStatus('ok');
     } catch (e) {
       fail(e);
+      return;
     } finally {
       busy = false;
     }
+    if (LO.syncPhotos) LO.syncPhotos();
   }
 
   LO.onChange = (name) => {
@@ -264,7 +268,8 @@
         + `<div class="fld"><span>${esc(t('step2'))}</span></div>`
         + `<label class="fld"><span>${esc(t('token'))}</span><input class="input" type="password" name="stoken" autocomplete="off" value="${esc(cfg.token || '')}" placeholder="${esc(t('tokenPh'))}"></label>`
         + `<label class="fld"><span>${esc(t('pass'))}</span><input class="input" type="password" name="spass" autocomplete="new-password" value="${esc(cfg.pass || '')}" placeholder="${esc(t('passPh'))}"></label>`
-        + `<p class="hint">${esc(t('passHint'))}</p><p class="hint">${esc(t('second'))}</p><p class="hint">${esc(t('photos'))}</p>`
+        + `<p class="hint">${esc(t('passHint'))}</p><p class="hint">${esc(t('second'))}</p>`
+        + `<div class="fld"><label class="check"><input type="checkbox" name="sphotos"${cfg.photos === false ? '' : ' checked'}>${esc(t('photosOn'))}</label><p class="hint">${esc(t('photos'))}</p></div>`
         + `<div class="row sync-row"><span class="sync-status" data-syncstatus>${esc(statusText(false))}</span>${on ? `<button type="button" class="btn sm" data-syncnow>${esc(t('now'))}</button>` : ''}</div>`,
       onOpen(dlg) {
         const b = $('[data-syncnow]', dlg);
@@ -279,6 +284,7 @@
         const changed = token !== cfg.token || pass !== cfg.pass;
         if (changed) { cfg = { token, pass, on: true }; meta = { stamps: meta.stamps }; }
         cfg.on = true;
+        cfg.photos = $('input[name="sphotos"]', dlg).checked;
         saveCfg();
         const err = $('#formErr');
         err.textContent = '';
@@ -320,5 +326,9 @@
     saveMeta();
   }
 
-  LO.sync = { open, start, pull, push, touchAll, status: () => status, label: () => statusText(true) };
+  const photosOn = () => enabled() && cfg.photos !== false;
+  // for sync-photos.js: the same GitHub access and encryption
+  LO.syncKit = { gh, encrypt, decrypt, fail, saveCfg, photosOn, get cfg() { return cfg; } };
+
+  LO.sync = { open, start, pull, push, touchAll, photosOn, status: () => status, label: () => statusText(true) };
 })();

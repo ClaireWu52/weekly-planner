@@ -21,7 +21,7 @@
       outfits: '我的搭配', newOutfit: '新建搭配', editOutfit: '编辑搭配', outfitName: '搭配名称', outfitNamePh: '比如：周一上课',
       pick: '选这套里的单品', noOutfits: '还没有搭配。', random: '随机搭一套', randomHint: (s) => `按当前季节（${s}）随机组一套：上衣加下装（或一件裙装）加鞋，天冷再加外套。`,
       saveOutfit: '存成搭配', again: '换一套', wearAll: '今天就穿这套', notEnough: '衣服还不够搭一套，至少要有上衣和下装，或者一件裙装。',
-      empty: '衣橱还是空的。点“添加衣服”拍下第一件吧。', storage: '照片只存在这台设备的浏览器里。换设备前记得在右上角“导出全部数据”。',
+      empty: '衣橱还是空的。点“添加衣服”拍下第一件吧。', storage: '照片只存在这台设备的浏览器里。换设备前记得在右上角“导出全部数据”。', storageSynced: '照片会加密同步到你的 GitHub，其他设备开了同步也能看到。',
       count: (n) => `${n} 件`, unworn: '很久没穿的', errName: '请填写名称。', errPhoto: '这张照片读不出来，换一张试试。', errPick: '至少选一件。',
       loading: '照片加载中…', randomName: (d) => `随机搭配 ${d}`
     },
@@ -36,7 +36,7 @@
       outfits: 'Outfits', newOutfit: 'New outfit', editOutfit: 'Edit outfit', outfitName: 'Outfit name', outfitNamePh: 'e.g. Monday classes',
       pick: 'Pick the pieces', noOutfits: 'No outfits yet.', random: 'Random outfit', randomHint: (s) => `Builds one for this season (${s}): top and bottom (or a dress) plus shoes, and outerwear when it is cold.`,
       saveOutfit: 'Save as outfit', again: 'Another one', wearAll: 'Wear this today', notEnough: 'Not enough clothes yet: you need a top and a bottom, or a dress.',
-      empty: 'Your wardrobe is empty. Tap "Add clothes" to photograph the first piece.', storage: 'Photos are stored only in this browser. Use "Export all data" before switching devices.',
+      empty: 'Your wardrobe is empty. Tap "Add clothes" to photograph the first piece.', storage: 'Photos are stored only in this browser. Use "Export all data" before switching devices.', storageSynced: 'Photos are encrypted and synced to your GitHub, so your other devices with sync on see them too.',
       count: (n) => `${n} items`, unworn: 'Not worn in a while', errName: 'Add a name.', errPhoto: "Couldn't read that photo. Try another.", errPick: 'Pick at least one item.',
       loading: 'Loading photos…', randomName: (d) => `Random outfit ${d}`
     }
@@ -63,9 +63,12 @@
   /* ---------------- photos ---------------- */
   const cache = new Map();
   let loaded = false;
-  LO.files.all().then((all) => {
+  const loadPhotos = () => LO.files.all().then((all) => {
     Object.entries(all).forEach(([k, v]) => { if (k.startsWith('ward:')) cache.set(k, v); });
   }).catch(() => {}).finally(() => { loaded = true; if (LO.route() === 'wardrobe') render(); });
+  loadPhotos();
+  // sync-photos.js calls this after fetching photos from another device
+  LO.wardrobe = { reloadPhotos: loadPhotos };
 
   function resize(file) {
     return new Promise((resolve, reject) => {
@@ -260,7 +263,7 @@
     if (W.s.items.length >= 4 && unworn.length) {
       h += `<div class="section-head"><h2>${esc(t('unworn'))}</h2></div><div class="unworn-row">${unworn.map((it) => `<button type="button" class="unworn" data-witem="${esc(it.id)}">${thumb(it, 'of-thumb')}<span>${esc(it.name)}</span></button>`).join('')}</div>`;
     }
-    h += `<p class="hint ward-storage">${esc(t('storage'))}</p>`;
+    h += `<p class="hint ward-storage">${esc(LO.sync && LO.sync.photosOn() ? t('storageSynced') : t('storage'))}</p>`;
     view.innerHTML = h;
   }
 

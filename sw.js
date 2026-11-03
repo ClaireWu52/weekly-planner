@@ -45,6 +45,7 @@ const SHELL = [
   'js/ics-parse.js',
   'js/calendar.js',
   'js/sync.js',
+  'js/sync-photos.js',
   'js/today.js'
 ];
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
