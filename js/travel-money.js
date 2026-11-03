@@ -14,9 +14,11 @@
   const RATE_API = 'https://open.er-api.com/v6/latest/';
   const BOOK_CAT = { flight: 'transport', train: 'transport', bus: 'transport', car: 'transport', hotel: 'stay', other: 'other' };
 
-  // Day choices for an expense: before the trip, then each trip day.
+  // Day choices for an expense: before the trip, then each trip day, plus the expense's
+  // own day if the trip dates have since moved away from it (so saving does not change it).
   const expDayOpts = (days, sel) => `<option value=""${sel ? '' : ' selected'}>${esc(t('beforeTrip'))}</option>`
-    + days.map((d) => `<option value="${d.key}"${d.key === sel ? ' selected' : ''}>${esc(t('inPlan')(d.n))} · ${esc(LO.shortDate(d.key))}</option>`).join('');
+    + days.map((d) => `<option value="${d.key}"${d.key === sel ? ' selected' : ''}>${esc(t('inPlan')(d.n))} · ${esc(LO.shortDate(d.key))}</option>`).join('')
+    + (sel && !days.some((d) => d.key === sel) ? `<option value="${esc(sel)}" selected>${esc(t('offDay')(sel))}</option>` : '');
 
   function fmtMoney(n, code) {
     try {

@@ -97,10 +97,23 @@
 
   // Days to move the itinerary by when a trip's dates change: moving the trip (both
   // ends change) moves the itinerary with it; changing only the start just makes the
-  // trip longer or shorter, so nothing moves.
+  // trip longer or shorter, so nothing moves. A trip with no end date is one day long.
   function planShift(old, next) {
-    if (!old.start || !next.start || next.start === old.start || next.end === old.end) return 0;
+    if (!old.start || !next.start || next.start === old.start) return 0;
+    if ((next.end || next.start) === (old.end || old.start)) return 0;
     return dayDiff(old.start, next.start);
+  }
+
+  // When the list of travel mates is edited, who in the old list is who in the new one.
+  // Names in both lists stay; if as many names went as came, they are renames, in order
+  // ("我, 小王" → "我, Alex" means 小王 is now Alex). Anyone else gone maps to nobody.
+  function renamePeople(before, after) {
+    const gone = before.filter((p) => !after.includes(p));
+    const added = after.filter((p) => !before.includes(p));
+    const map = {};
+    before.forEach((p) => { if (after.includes(p)) map[p] = p; });
+    if (gone.length === added.length) gone.forEach((p, i) => { map[p] = added[i]; });
+    return map;
   }
 
   // Put the items with these ids into this order, using only the places they already
@@ -114,5 +127,5 @@
     return arr;
   }
 
-  LO.tripCalc = { dayDiff, toHome, freezeRates, settleUp, dailyBudget, packGuess, planShift, reorder };
+  LO.tripCalc = { dayDiff, toHome, freezeRates, settleUp, dailyBudget, packGuess, planShift, renamePeople, reorder };
 })();

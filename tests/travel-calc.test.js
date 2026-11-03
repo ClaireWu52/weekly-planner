@@ -4,7 +4,7 @@
  */
 (() => {
   'use strict';
-  const { dayDiff, toHome, freezeRates, settleUp, dailyBudget, packGuess, planShift, reorder } = window.LO.tripCalc;
+  const { dayDiff, toHome, freezeRates, settleUp, dailyBudget, packGuess, planShift, renamePeople, reorder } = window.LO.tripCalc;
 
   // A trip with just what the calculations read; override any part.
   const trip = (o = {}) => Object.assign({
@@ -180,10 +180,27 @@
     eq(planShift({ start: '2026-11-03', end: '2026-11-06' }, { start: '2026-11-01', end: '2026-11-05' }), -2);
   });
 
+  test('planShift: a one-day trip with no end date moves with its start', () => {
+    eq(planShift({ start: '2026-10-01', end: '' }, { start: '2026-12-01', end: '' }), 61);
+    eq(planShift({ start: '2026-10-01', end: '' }, { start: '2026-10-01', end: '2026-10-03' }), 0, 'only the end added');
+  });
+
   test('planShift: changing one end, or a trip without dates, moves nothing', () => {
     eq(planShift({ start: '2026-11-03', end: '2026-11-06' }, { start: '2026-11-02', end: '2026-11-06' }), 0, 'only the start');
     eq(planShift({ start: '2026-11-03', end: '2026-11-06' }, { start: '2026-11-03', end: '2026-11-08' }), 0, 'only the end');
     eq(planShift({ start: '', end: '' }, { start: '2026-11-03', end: '2026-11-06' }), 0, 'no dates before');
+  });
+
+  /* ---------------- travel mates ---------------- */
+  test('renamePeople: renaming someone keeps what they paid and shared', () => {
+    eq(renamePeople(['我', '小王'], ['我', 'Alex']), { 我: '我', 小王: 'Alex' });
+    eq(renamePeople(['A', 'B', 'C'], ['A', 'Bea', 'Cal']), { A: 'A', B: 'Bea', C: 'Cal' }, 'two renames, in order');
+  });
+
+  test('renamePeople: reordering, adding or removing people is not a rename', () => {
+    eq(renamePeople(['我', '小王'], ['小王', '我']), { 我: '我', 小王: '小王' }, 'reordered');
+    eq(renamePeople(['我'], ['我', '小王']), { 我: '我' }, 'someone added');
+    eq(renamePeople(['我', '小王', 'Alex'], ['我', 'Alex']), { 我: '我', Alex: 'Alex' }, 'someone removed');
   });
 
   /* ---------------- reordering ---------------- */

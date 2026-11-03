@@ -206,7 +206,8 @@
     return t('countdown')(LO.dayDiff(today, tr.start));
   }
   const dateRange = (tr) => (tr.start ? `${LO.shortDate(tr.start)}${tr.end ? ` – ${LO.shortDate(tr.end)}` : ''}` : '');
-  const isPast = (tr) => tr.end && tr.end < LO.todayKey();
+  // a trip with no end date is over after its start day
+  const isPast = (tr) => { const last = tr.end || tr.start; return !!last && last < LO.todayKey(); };
   const curTrip = (s) => s.trips.find((x) => x.id === openId);
 
   // Trip days in order: every date from start to end, plus any other date that still has plans.
@@ -271,12 +272,13 @@
             // moving the whole trip moves the itinerary with it (see planShift in travel-calc.js)
             const shift = LO.tripCalc.planShift(x, { start, end });
             if (shift) x.plan.forEach((p) => { p.day = LO.keyOf(LO.addDays(LO.parseKey(p.day), shift)); });
-            Object.assign(x, fields);
-            // keep spending consistent with the new list of people
+            // keep spending consistent with the new list of people, following renames
+            const who = LO.tripCalc.renamePeople(x.people, people);
             x.expenses.forEach((e) => {
-              if (!people.includes(e.paidBy)) e.paidBy = people[0];
-              e.split = e.split.filter((p) => people.includes(p));
+              e.paidBy = who[e.paidBy] || people[0];
+              e.split = e.split.map((p) => who[p]).filter(Boolean);
             });
+            Object.assign(x, fields);
           } else {
             newId = uid();
             const sections = {};

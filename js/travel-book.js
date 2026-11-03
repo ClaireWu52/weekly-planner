@@ -102,9 +102,8 @@
     return `${h}</div>`;
   }
 
-
-// Trips and bookings from today on, for the calendar export. Times are minutes after midnight, or null for all-day.
-LO.travel.calendarItems = () => {
+  // Trips and bookings from today on, for the calendar export. Times are minutes after midnight, or null for all-day.
+  LO.travel.calendarItems = () => {
     const today = LO.todayKey();
     const mins = (v) => (v ? +v.slice(0, 2) * 60 + +v.slice(3) : null);
     const out = [];
