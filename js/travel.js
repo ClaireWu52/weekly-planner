@@ -67,7 +67,10 @@
       // sharing
       share: '分享', shareTitle: '分享这个行程', shareHint: '复制下面的文字，发给一起旅行的朋友。',
       shareConf: '包含确认号和地址', shareSys: '用系统分享', with: '同行', daysN: (n) => `${n} 天`,
-      shareBook: '交通和预订', sharePlan: '每日行程', shareStay: '住宿', shareFood: '想吃的', shareSpots: '想去的'
+      shareBook: '交通和预订', sharePlan: '每日行程', shareStay: '住宿', shareFood: '想吃的', shareSpots: '想去的',
+      // punctuation and editing
+      list: (a) => a.join('、'), colon: '：', paren: (s) => `（${s}）`, sep: '，',
+      beforeTrip: '出发前', editItem: '编辑', editPlan: '编辑行程安排', editExp: '编辑花费', day: '哪一天', name: '名称'
     },
     en: {
       title: 'Travel', sub: 'One page per trip: itinerary, bookings, places, stay, food, packing and spending.',
@@ -113,7 +116,9 @@
       errAmount: 'Add an amount.', errRate: 'Add the rate.', needRate: 'Set the rate under Budget & rate so local spending counts in the totals.',
       share: 'Share', shareTitle: 'Share this trip', shareHint: 'Copy the text below and send it to your travel mates.',
       shareConf: 'Include confirmation numbers and addresses', shareSys: 'Share…', with: 'With', daysN: (n) => `${n} days`,
-      shareBook: 'Transport and bookings', sharePlan: 'Itinerary', shareStay: 'Stay', shareFood: 'Food to try', shareSpots: 'Places to see'
+      shareBook: 'Transport and bookings', sharePlan: 'Itinerary', shareStay: 'Stay', shareFood: 'Food to try', shareSpots: 'Places to see',
+      list: (a) => a.join(', '), colon: ': ', paren: (s) => ` (${s})`, sep: ' · ',
+      beforeTrip: 'Before the trip', editItem: 'Edit', editPlan: 'Edit plan', editExp: 'Edit expense', day: 'Day', name: 'Name'
     }
   });
   const t = LO.ns('travel');
@@ -152,6 +157,7 @@
       const money = { home: cur(m.home, 'USD'), local: cur(m.local, cur(m.home, 'USD')), rate: num(m.rate), rateAt: str(m.rateAt), budget: num(m.budget) };
       const expenses = (x.expenses || []).filter((e) => e && typeof e.name === 'string' && num(e.amount) > 0).map((e) => ({
         id: String(e.id || uid()), day: isKey(e.day) ? e.day : '', name: e.name.slice(0, 80), amount: num(e.amount), cur: cur(e.cur, money.home),
+        rate: num(e.rate), rateTo: cur(e.rateTo, ''),
         cat: CATS.includes(e.cat) ? e.cat : 'other', paidBy: people.includes(e.paidBy) ? e.paidBy : people[0],
         split: Array.isArray(e.split) ? e.split.filter((p) => people.includes(p)) : people.slice()
       }));
@@ -189,6 +195,10 @@
   const byTime = (a, b) => (a.time || '99:99') < (b.time || '99:99') ? -1 : (a.time || '99:99') > (b.time || '99:99') ? 1 : 0;
   const byWhen = (a, b) => `${a.date || '9999'}${a.time || '99:99'}` < `${b.date || '9999'}${b.time || '99:99'}` ? -1 : 1;
   const dayNum = (tr, key) => (tr.start ? LO.dayDiff(tr.start, key) + 1 : 0);
+  const editBtn = (attr) => `<button type="button" class="icon-btn sm ghost" ${attr} aria-label="${esc(t('editItem'))}">${LO.icon.edit}</button>`;
+  // Day choices for an expense: before the trip, then each trip day.
+  const expDayOpts = (days, sel) => `<option value=""${sel ? '' : ' selected'}>${esc(t('beforeTrip'))}</option>`
+    + days.map((d) => `<option value="${d.key}"${d.key === sel ? ' selected' : ''}>${esc(t('inPlan')(d.n))} · ${esc(LO.shortDate(d.key))}</option>`).join('');
 
   // Bookings that happen on a given day, as short lines for the itinerary and the Today page.
   function bookingLines(tr, key) {
@@ -208,10 +218,25 @@
     } catch (_) { return `${LO.round1(n)} ${code}`; }
   }
   // Value of an expense in the home currency, or null when no rate is set for it.
+  // Expenses in a currency the trip no longer uses keep the rate they were frozen at.
   function toHome(tr, e) {
     if (e.cur === tr.money.home) return e.amount;
     if (e.cur === tr.money.local && tr.money.rate > 0) return e.amount * tr.money.rate;
+    if (e.rate > 0 && e.rateTo === tr.money.home) return e.amount * e.rate;
     return null;
+  }
+  // Before the currencies change, pin each expense that would lose its rate to what it is worth now.
+  function freezeRates(tr, next) {
+    const oldHome = tr.money.home;
+    // one unit of the old home currency in the new one
+    const homeToNew = next.home === oldHome ? 1 : next.home === tr.money.local && tr.money.rate > 0 ? 1 / tr.money.rate : 0;
+    tr.expenses.forEach((e) => {
+      if (e.cur === next.home || (e.cur === next.local && next.rate > 0)) return;
+      const v = toHome(tr, e);
+      if (v == null || !homeToNew) return;
+      e.rate = v / e.amount * homeToNew;
+      e.rateTo = next.home;
+    });
   }
   // Who pays whom so everyone ends up even (greedy: biggest debtor pays biggest creditor).
   function settleUp(tr) {
@@ -382,10 +407,105 @@
         if (local !== home && !(rate > 0)) return t('errRate');
         const rateAt = fetchedAt || (rate === m.rate ? m.rateAt : '');
         LO.mutate(T, (s) => {
-          curTrip(s).money = { home, local, rate: local === home ? 0 : rate, rateAt: local === home ? '' : rateAt, budget: num($('input[name="mbudget"]', dlg).value) };
+          const x = curTrip(s);
+          const next = { home, local, rate: local === home ? 0 : rate, rateAt: local === home ? '' : rateAt, budget: num($('input[name="mbudget"]', dlg).value) };
+          if (home !== m.home || local !== m.local) freezeRates(x, next);
+          x.money = next;
         }, tc('saved'));
         return true;
       }
+    });
+  }
+
+  // A place, stay, food, photo spot or packing item in the open section.
+  function openItem(iid) {
+    const tr = T.s.trips.find((x) => x.id === openId);
+    const k = sec;
+    const it = tr.sections[k].find((x) => x.id === iid);
+    if (!it) return;
+    const full = k !== 'pack';
+    LO.openForm({
+      title: t('editItem'),
+      body: `<label class="fld"><span>${esc(t('name'))}</span><input class="input" name="iname" maxlength="80" value="${esc(it.name)}" placeholder="${esc(t('addPh')[k])}"></label>`
+        + (full ? `<label class="fld"><span>${esc(t('note'))}</span><input class="input" name="inote" maxlength="300" value="${esc(it.note)}" placeholder="${esc(t('itemNotePh'))}"></label>`
+          + `<label class="fld"><span>${esc(t('linkPh'))}</span><input class="input" name="ilink" maxlength="400" value="${esc(it.link)}"></label>` : ''),
+      onSave(dlg) {
+        const name = $('input[name="iname"]', dlg).value.trim();
+        if (!name) return t('errTitle');
+        LO.mutate(T, (s) => {
+          const x = curTrip(s);
+          const y = x.sections[k].find((i) => i.id === iid);
+          // plans picked from this item follow the new name
+          if (full && name !== y.name) x.plan.forEach((p) => { if (p.name === y.name) p.name = name; });
+          y.name = name;
+          if (full) { y.note = $('input[name="inote"]', dlg).value.trim(); y.link = safeUrl($('input[name="ilink"]', dlg).value); }
+        }, tc('saved'));
+        return true;
+      },
+      onDelete: () => LO.mutate(T, (s) => { const x = curTrip(s); x.sections[k] = x.sections[k].filter((i) => i.id !== iid); }, tc('deleted'))
+    });
+  }
+
+  // One itinerary entry, including moving it to another day.
+  function openPlan(pid) {
+    const tr = T.s.trips.find((x) => x.id === openId);
+    const p = tr.plan.find((x) => x.id === pid);
+    if (!p) return;
+    const dayOpts = tripDays(tr).map(({ key, n }) => `<option value="${key}"${key === p.day ? ' selected' : ''}>${esc(n ? t('dayLabel')(n, key) : t('offDay')(key))}</option>`).join('');
+    LO.openForm({
+      title: t('editPlan'),
+      body: `<div class="form-row"><label class="fld"><span>${esc(t('day'))}</span><select class="input" name="pday">${dayOpts}</select></label>`
+        + `<label class="fld"><span>${esc(t('time'))}</span><input class="input" type="time" name="ptime" value="${esc(p.time)}"></label></div>`
+        + `<label class="fld"><span>${esc(t('name'))}</span><input class="input" name="pname" maxlength="80" list="tripPicks" value="${esc(p.name)}" placeholder="${esc(t('planPh'))}"></label>`
+        + `<label class="fld"><span>${esc(t('note'))}</span><input class="input" name="pnote" maxlength="300" value="${esc(p.note)}" placeholder="${esc(t('planNotePh'))}"></label>`
+        + `<label class="fld"><span>${esc(t('linkPh'))}</span><input class="input" name="plink" maxlength="400" value="${esc(p.link)}"></label>`,
+      onSave(dlg) {
+        const g = (n) => $(`[name="${n}"]`, dlg).value.trim();
+        const name = g('pname');
+        if (!name) return t('errTitle');
+        LO.mutate(T, (s) => {
+          Object.assign(curTrip(s).plan.find((x) => x.id === pid), { day: g('pday'), time: g('ptime'), name, note: g('pnote'), link: safeUrl(g('plink')) });
+        }, tc('saved'));
+        return true;
+      },
+      onDelete: () => LO.mutate(T, (s) => { const x = curTrip(s); x.plan = x.plan.filter((y) => y.id !== pid); }, tc('deleted'))
+    });
+  }
+
+  function openExpense(eid) {
+    const tr = T.s.trips.find((x) => x.id === openId);
+    const e = tr.expenses.find((x) => x.id === eid);
+    if (!e) return;
+    const days = tripDays(tr).filter((d) => d.n);
+    const multi = tr.people.length > 1;
+    const curs = Array.from(new Set([tr.money.local, tr.money.home, e.cur]));
+    LO.openForm({
+      title: t('editExp'),
+      body: `<label class="fld"><span>${esc(t('expName'))}</span><input class="input" name="ename" maxlength="80" value="${esc(e.name)}"></label>`
+        + `<div class="form-row"><label class="fld"><span>${esc(t('amount'))}</span><input class="input" type="number" name="eamt" min="0" step="any" inputmode="decimal" value="${e.amount}"></label>`
+        + `<label class="fld"><span>${esc(t('localCur'))}</span><select class="input" name="ecur">${curs.map((c) => `<option value="${c}"${c === e.cur ? ' selected' : ''}>${c}</option>`).join('')}</select></label></div>`
+        + `<div class="form-row"><label class="fld"><span>${esc(tc('category'))}</span><select class="input" name="ecat">${CATS.map((c) => `<option value="${c}"${c === e.cat ? ' selected' : ''}>${esc(t('cats')[c])}</option>`).join('')}</select></label>`
+        + (days.length ? `<label class="fld"><span>${esc(t('date'))}</span><select class="input" name="eday">${expDayOpts(days, e.day)}</select></label>` : '') + '</div>'
+        + (multi ? `<label class="fld"><span>${esc(t('paidBy'))}</span><select class="input" name="epaid">${tr.people.map((p) => `<option value="${esc(p)}"${p === e.paidBy ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select></label>`
+          + `<div class="fld"><span>${esc(t('splitWith'))}</span><div class="exp-split">${LO.chips('esplit', tr.people.map((p) => [p, esc(p)]), 'checkbox', e.split.length ? e.split : tr.people)}</div></div>` : ''),
+      onSave(dlg) {
+        const g = (n) => { const el = dlg.querySelector(`[name="${n}"]`); return el ? el.value.trim() : ''; };
+        const name = g('ename');
+        if (!name) return t('errTitle');
+        const amount = num(g('eamt'));
+        if (!(amount > 0)) return t('errAmount');
+        const split = multi ? LO.checkedVals(dlg, 'esplit') : [];
+        LO.mutate(T, (s) => {
+          const x = curTrip(s);
+          const y = x.expenses.find((z) => z.id === eid);
+          const ecur = g('ecur');
+          // a frozen rate only holds for the currency it was frozen with
+          if (ecur !== y.cur) { y.rate = 0; y.rateTo = ''; }
+          Object.assign(y, { name, amount, cur: ecur, cat: g('ecat') || 'other', day: days.length ? g('eday') : y.day, paidBy: g('epaid') || y.paidBy, split: split.length ? split : x.people.slice() });
+        }, tc('saved'));
+        return true;
+      },
+      onDelete: () => LO.mutate(T, (s) => { const x = curTrip(s); x.expenses = x.expenses.filter((y) => y.id !== eid); }, tc('deleted'))
     });
   }
 
@@ -393,8 +513,8 @@
   function shareText(tr, withConf) {
     const lines = [];
     const nDays = tr.start ? LO.dayDiff(tr.start, tr.end || tr.start) + 1 : 0;
-    lines.push(`📍 ${tr.dest}${tr.start ? ` · ${dateRange(tr)}${nDays ? `（${t('daysN')(nDays)}）` : ''}` : ''}`);
-    if (tr.people.length > 1) lines.push(`${t('with')}：${tr.people.join('、')}`);
+    lines.push(`📍 ${tr.dest}${tr.start ? ` · ${dateRange(tr)}${nDays ? t('paren')(t('daysN')(nDays)) : ''}` : ''}`);
+    if (tr.people.length > 1) lines.push(`${t('with')}${t('colon')}${t('list')(tr.people)}`);
     if (tr.note) lines.push(tr.note);
     const books = tr.bookings.slice().sort(byWhen);
     if (books.length) {
@@ -404,8 +524,8 @@
         const until = b.endDate || b.endTime ? ` – ${[b.endDate && b.endDate !== b.date ? LO.shortDate(b.endDate) : '', b.endTime].filter(Boolean).join(' ')}` : '';
         const route = b.from || b.to ? ` ${[b.from, b.to].filter(Boolean).join(' → ')}` : '';
         lines.push(`${KIND_ICON[b.kind]} ${when}${until} ${b.title}${route}`.replace(/\s+/g, ' ').trim());
-        if (withConf && b.conf) lines.push(`   ${t('conf')}：${b.conf}`);
-        if (withConf && b.address) lines.push(`   ${t('address')}：${b.address}`);
+        if (withConf && b.conf) lines.push(`   ${t('conf')}${t('colon')}${b.conf}`);
+        if (withConf && b.address) lines.push(`   ${t('address')}${t('colon')}${b.address}`);
       });
     }
     const days = tripDays(tr).filter((d) => d.n);
@@ -497,7 +617,7 @@
   function detailHTML(tr) {
     const q = encodeURIComponent(tr.dest);
     let h = `<button type="button" class="link-btn back" data-tback>‹ ${esc(t('back'))}</button>`
-      + `<div class="view-head"><div><h1>${esc(tr.dest)}</h1><p class="sub">${esc([dateRange(tr), status(tr), tr.people.length > 1 ? tr.people.join('、') : ''].filter(Boolean).join('，'))}</p></div>`
+      + `<div class="view-head"><div><h1>${esc(tr.dest)}</h1><p class="sub">${esc([dateRange(tr), status(tr), tr.people.length > 1 ? t('list')(tr.people) : ''].filter(Boolean).join(t('sep')))}</p></div>`
       + `<div class="row"><button type="button" class="btn" data-tshare>${esc(t('share'))}</button><button type="button" class="btn" data-tedit>${esc(tc('edit'))}</button></div></div>`;
     if (tr.note) h += `<p class="trip-note">${esc(tr.note)}</p>`;
     h += `<div class="row trip-links"><a class="btn sm" href="https://www.xiaohongshu.com/search_result?keyword=${encodeURIComponent(tr.dest + ' 攻略')}" target="_blank" rel="noopener noreferrer">${esc(t('xhs'))}</a>`
@@ -519,7 +639,7 @@
       + `<div class="ti-body">${i.link ? `<a href="${esc(i.link)}" target="_blank" rel="noopener noreferrer"><b>${esc(i.name)}</b></a>` : `<b>${esc(i.name)}</b>`}`
       + `${planned(i.name).length ? `<span class="badge">${planned(i.name).map((n) => esc(t('inPlan')(n))).join(' ')}</span>` : ''}${i.note ? `<p>${esc(i.note)}</p>` : ''}</div>`
       + (sec === 'pack' ? '' : `<a class="btn sm ghost" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(i.name + ' ' + tr.dest)}" target="_blank" rel="noopener noreferrer">${esc(t('map'))}</a>`)
-      + `<button type="button" class="icon-btn sm ghost" data-tdel aria-label="${esc(tc('delete'))}">${LO.icon.x}</button></li>`).join('')}</ul>`
+      + editBtn('data-tiedit') + `<button type="button" class="icon-btn sm ghost" data-tdel aria-label="${esc(tc('delete'))}">${LO.icon.x}</button></li>`).join('')}</ul>`
       : `<p class="empty-note">${esc(t('emptySec'))}</p>`;
     return `${h}</section>`;
   }
@@ -553,7 +673,7 @@
         + `<span class="plan-time">${esc(p.time)}</span>`
         + `<div class="ti-body">${p.link ? `<a href="${esc(p.link)}" target="_blank" rel="noopener noreferrer"><b>${esc(p.name)}</b></a>` : `<b>${esc(p.name)}</b>`}${p.note ? `<p>${esc(p.note)}</p>` : ''}</div>`
         + `<a class="btn sm ghost" href="https://www.google.com/maps/search/?api=1&query=${q(p.name)}" target="_blank" rel="noopener noreferrer">${esc(t('map'))}</a>`
-        + `<button type="button" class="icon-btn sm ghost" data-pdel aria-label="${esc(tc('delete'))}">${LO.icon.x}</button></li>`).join('')}</ul>`
+        + editBtn('data-piedit') + `<button type="button" class="icon-btn sm ghost" data-pdel aria-label="${esc(tc('delete'))}">${LO.icon.x}</button></li>`).join('')}</ul>`
         : (books.length ? '' : `<p class="empty-note">${esc(t('emptyDay'))}</p>`);
       if (n) {
         h += `<form class="trip-add plan-add" data-padd="${key}"><input class="input plan-time-in" type="time" name="ptime" aria-label="${esc(t('time'))}">`
@@ -615,8 +735,8 @@
       + `<input class="input exp-amt" type="number" name="eamt" min="0" step="any" inputmode="decimal" placeholder="${esc(t('amount'))}" aria-label="${esc(t('amount'))}">`
       + `<select class="input" name="ecur" aria-label="${esc(t('localCur'))}">${curs.map((c) => `<option value="${c}">${c}</option>`).join('')}</select>`
       + `<select class="input" name="ecat" aria-label="${esc(tc('category'))}">${CATS.map((c) => `<option value="${c}">${esc(t('cats')[c])}</option>`).join('')}</select>`
-      + (days.length ? `<select class="input" name="eday" aria-label="${esc(t('date'))}">${days.map((d) => `<option value="${d.key}"${d.key === day0 ? ' selected' : ''}>${esc(t('inPlan')(d.n))} · ${esc(LO.shortDate(d.key))}</option>`).join('')}</select>` : '')
-      + (tr.people.length > 1 ? `<select class="input" name="epaid" aria-label="${esc(t('paidBy'))}">${tr.people.map((p) => `<option value="${esc(p)}">${esc(t('paidBy'))}：${esc(p)}</option>`).join('')}</select>` : '')
+      + (days.length ? `<select class="input" name="eday" aria-label="${esc(t('date'))}">${expDayOpts(days, day0)}</select>` : '')
+      + (tr.people.length > 1 ? `<select class="input" name="epaid" aria-label="${esc(t('paidBy'))}">${tr.people.map((p) => `<option value="${esc(p)}">${esc(t('paidBy'))}${esc(t('colon'))}${esc(p)}</option>`).join('')}</select>` : '')
       + `<button type="submit" class="btn primary">${LO.icon.plus}<span>${esc(t('add'))}</span></button>`
       + (tr.people.length > 1 ? `<div class="exp-split"><span class="hint">${esc(t('splitWith'))}</span>${LO.chips('esplit', tr.people.map((p) => [p, esc(p)]), 'checkbox', tr.people)}</div>` : '')
       + '</form>';
@@ -627,10 +747,11 @@
       const list = tr.expenses.slice().reverse().sort((a, b) => (a.day || '') < (b.day || '') ? 1 : (a.day || '') > (b.day || '') ? -1 : 0);
       h += `<ul class="trip-items exp-items">${list.map((e) => {
         const v = toHome(tr, e);
-        const sub = [t('cats')[e.cat], e.day ? LO.shortDate(e.day) : '', tr.people.length > 1 ? `${e.paidBy} → ${(e.split.length ? e.split : tr.people).join('、')}` : ''].filter(Boolean).join(' · ');
+        const when = e.day ? LO.shortDate(e.day) : days.length ? t('beforeTrip') : '';
+        const sub = [t('cats')[e.cat], when, tr.people.length > 1 ? `${e.paidBy} → ${t('list')(e.split.length ? e.split : tr.people)}` : ''].filter(Boolean).join(' · ');
         return `<li data-eitem="${esc(e.id)}"><div class="ti-body"><b>${esc(e.name)}</b><p>${esc(sub)}</p></div>`
           + `<div class="exp-amts"><b>${esc(fmtMoney(e.amount, e.cur))}</b>${e.cur !== m.home ? `<small>${v == null ? esc(t('noRate')) : `≈ ${esc(fmtMoney(v, m.home))}`}</small>` : ''}</div>`
-          + `<button type="button" class="icon-btn sm ghost" data-edel aria-label="${esc(tc('delete'))}">${LO.icon.x}</button></li>`;
+          + editBtn('data-eedit') + `<button type="button" class="icon-btn sm ghost" data-edel aria-label="${esc(tc('delete'))}">${LO.icon.x}</button></li>`;
       }).join('')}</ul>`;
     }
     h += '</section>';
@@ -670,6 +791,12 @@
     const be = e.target.closest('[data-bedit]');
     if (be) { openBooking(be.dataset.bedit); return; }
     if (e.target.closest('[data-mset]')) { openMoney(); return; }
+    const ie = e.target.closest('[data-tiedit]');
+    if (ie) { openItem(ie.closest('[data-titem]').dataset.titem); return; }
+    const pe = e.target.closest('[data-piedit]');
+    if (pe) { openPlan(pe.closest('[data-pitem]').dataset.pitem); return; }
+    const ee = e.target.closest('[data-eedit]');
+    if (ee) { openExpense(ee.closest('[data-eitem]').dataset.eitem); return; }
     const cp = e.target.closest('[data-copy]');
     if (cp) { copyText(cp.dataset.copy).then((ok) => { if (ok) LO.toast(t('copied')); }); return; }
     const sb = e.target.closest('[data-tsec]');
