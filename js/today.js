@@ -181,6 +181,16 @@
       + (evs.length ? `<ul class="timeline">${items}</ul>` : `<p class="empty-note">${esc(t('noEvents'))}</p>`) + '</section>';
   }
 
+  function tripCard() {
+    const tr = LO.travel && LO.travel.today();
+    if (!tr) return '';
+    const tt = LO.ns('travel');
+    const items = tr.items.map((p) => `<li class="ev-line cat-life${p.done ? ' is-past' : ''}"><span class="ev-time">${esc(p.time || '·')}</span>`
+      + `<span class="ev-info"><b>${esc(p.name)}</b>${p.note ? `<small>${esc(p.note)}</small>` : ''}</span></li>`).join('');
+    return `<section class="card o2 trip-today"><header class="card-head"><h2>${esc(tt('todayCard')(tr.dest, tr.n))}</h2><button type="button" class="link link-btn" data-opentrip="${esc(tr.id)}">${esc(tt('openTrip'))}</button></header>`
+      + (items ? `<ul class="timeline">${items}</ul>` : `<p class="empty-note">${esc(tt('todayEmpty'))}</p>`) + '</section>';
+  }
+
   function focusCard() {
     const T = LO.tasks;
     const list = T.focusTodos();
@@ -270,7 +280,7 @@
     const greet = t('greet')(now.getHours());
     let h = `<div class="view-head"><div><h1>${esc(LO.dateLine(now))}</h1><p class="sub">${esc(streak >= 2 ? t('streak')(greet.replace(/[。.]$/, ''), streak) : greet)}</p></div></div>`;
     h += '<div class="today-grid">';
-    h += `<div class="tcol-a">${scheduleCard()}<section class="card o7"><header class="card-head"><h2>${esc(t('timer'))}</h2></header><div id="focusSlot">${timerCard()}</div></section></div>`;
+    h += `<div class="tcol-a">${tripCard()}${scheduleCard()}<section class="card o7"><header class="card-head"><h2>${esc(t('timer'))}</h2></header><div id="focusSlot">${timerCard()}</div></section></div>`;
     h += `<div class="tcol-b">${focusCard()}${dailiesCard()}${upcomingCard()}</div>`;
     h += `<div class="tcol-c">${healthCard()}${habitsCard()}${monthCard()}${newsCard()}${wishesCard()}</div>`;
     h += '</div>';
@@ -282,6 +292,8 @@
   LO.tasks.attach(view);
   if (LO.plan) LO.plan.attachMonths(view);
   view.addEventListener('click', (e) => {
+    const ot = e.target.closest('[data-opentrip]');
+    if (ot) { LO.travel.show(ot.dataset.opentrip); return; }
     const w = e.target.closest('[data-water]');
     if (w) { LO.health.addWater(+w.dataset.water); return; }
     const m = e.target.closest('[data-mood]');

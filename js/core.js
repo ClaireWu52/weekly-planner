@@ -119,7 +119,7 @@
       customize: '自定义页面', custHint: '取消勾选的页面会从导航里隐藏，数据不会删除，随时可以再打开。今日概览不能隐藏。', custSaved: '导航已更新',
       sync: '同步设置', calendar: '导出到日历', install: '装到手机桌面', installTitle: '装到手机桌面', ok: '知道了',
       installHow: ['iPhone：用 Safari 打开网站，点底部的“分享”按钮，选“添加到主屏幕”。', 'Android：用 Chrome 打开网站，点右上角的 ⋮，选“安装应用”或“添加到主屏幕”。', '电脑：用 Chrome 或 Edge 打开网站，点地址栏右侧的安装图标。', '装好之后，从桌面图标打开就像一个 App，没网时也能看已有的内容。'],
-      more: '更多选项', undo: '撤销', exportData: '导出全部数据', importData: '导入备份', resetSchedule: '恢复初始课表',
+      more: '更多选项', undo: '撤销', exportData: '导出全部数据', importData: '导入备份', resetSchedule: '清空课表',
       theme: '外观', themeNames: { auto: '跟随系统', light: '浅色', dark: '深色' }, langSwitch: 'English', shortcuts: '快捷键',
       shortcutsText: '数字键切换页面　⌘/Ctrl+Z 撤销　课表页：N 新建　← → 切换周　T 本周　P 打印',
       imported: '备份已导入', importFailed: '这个文件不是有效的备份'
@@ -131,7 +131,7 @@
       customize: 'Customize pages', custHint: 'Unchecked pages are hidden from the navigation. Nothing is deleted, and you can turn them back on anytime. Overview cannot be hidden.', custSaved: 'Navigation updated',
       sync: 'Sync settings', calendar: 'Export to calendar', install: 'Install on phone', installTitle: 'Install on your phone', ok: 'Got it',
       installHow: ['iPhone: open the site in Safari, tap Share at the bottom, then "Add to Home Screen".', 'Android: open the site in Chrome, tap ⋮ at the top right, then "Install app" or "Add to Home screen".', 'Computer: open the site in Chrome or Edge and click the install icon on the right of the address bar.', 'Once installed, it opens from the icon like an app and still shows your data offline.'],
-      more: 'More options', undo: 'Undo', exportData: 'Export all data', importData: 'Import backup', resetSchedule: 'Restore default schedule',
+      more: 'More options', undo: 'Undo', exportData: 'Export all data', importData: 'Import backup', resetSchedule: 'Clear schedule',
       theme: 'Appearance', themeNames: { auto: 'System', light: 'Light', dark: 'Dark' }, langSwitch: '中文', shortcuts: 'Keyboard shortcuts',
       shortcutsText: 'Number keys switch pages   ⌘/Ctrl+Z undo   Schedule: N new   ← → week   T this week   P print',
       imported: 'Backup imported', importFailed: "This file isn't a valid backup"
