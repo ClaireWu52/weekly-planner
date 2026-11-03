@@ -80,6 +80,8 @@
     if (k) k.textContent = LO.isMac ? '⌘Z' : 'Ctrl+Z';
     const tv = $('#themeVal');
     if (tv) tv.textContent = LO.t('app.themeNames')[settings.theme];
+    const sv = $('#syncVal');
+    if (sv && LO.sync) sv.textContent = LO.sync.label();
     $$('[data-setlang]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.setlang === settings.lang)));
   };
 
@@ -375,7 +377,7 @@
     $('#formErr').textContent = '';
     const del = $('#formDel');
     del.hidden = !opts.onDelete;
-    del.textContent = tc('delete');
+    del.textContent = opts.deleteLabel || tc('delete');
     del.dataset.armed = '';
     $('#formSave').textContent = opts.saveLabel || tc('save');
     if (!dlg.open) dlg.showModal();
@@ -503,6 +505,7 @@
       } else {
         throw new Error('bad');
       }
+      if (LO.sync && LO.sync.touchAll) LO.sync.touchAll();
       sessionStorage.setItem('planner:imported', '1');
       window.location.reload();
     } catch (_) {
@@ -587,7 +590,7 @@
     wireShell();
     wireFormDialog();
     show();
-    if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
+    if ('serviceWorker' in navigator && window.isSecureContext && window.location.protocol !== 'file:') {
       navigator.serviceWorker.register('sw.js').catch(() => {});
     }
     if (LO.sync && LO.sync.start) LO.sync.start();

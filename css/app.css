@@ -805,6 +805,9 @@ button.stat:hover { border-color: var(--line-2); }
 .cust-group b { display: block; margin-bottom: 2px; font-size: 13.5px; }
 .cust-group .chips { gap: 2px 16px; }
 .install-steps { margin: 4px 0 8px; padding-left: 20px; line-height: 1.7; font-size: 14px; }
+.sync-intro { margin-bottom: 12px; font-size: 14px; color: var(--ink); }
+.sync-row { justify-content: space-between; margin-top: 12px; }
+.sync-status { font-size: 13px; color: var(--muted); }
 
 /* ---------- weekly review ---------- */
 .rv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }

@@ -313,5 +313,12 @@
     setInterval(() => { if (document.visibilityState === 'visible') pull(); }, 5 * 60 * 1000);
   }
 
-  LO.sync = { open, start, pull, push, status: () => status };
+  // After importing a backup, mark every section as just changed so the import wins over the cloud copy.
+  function touchAll() {
+    const now = Date.now();
+    parts().forEach(({ name }) => { meta.stamps[name] = now; });
+    saveMeta();
+  }
+
+  LO.sync = { open, start, pull, push, touchAll, status: () => status, label: () => statusText(true) };
 })();

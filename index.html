@@ -6,6 +6,14 @@
   <title>My Planner</title>
   <meta name="description" content="Schedule, tasks, habits, health, yearly goals, reading and a growth log in one page. 课表、任务、习惯、健康、年度目标、学习清单和成长记录。">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="计划本">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#EEF0F3" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0F1217" media="(prefers-color-scheme: dark)">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -61,6 +69,8 @@
       <button data-act="undo"><span data-i18n="app.undo"></span><kbd id="undoKbd"></kbd></button>
       <hr>
       <button data-act="customize"><span data-i18n="app.customize"></span></button>
+      <button data-act="sync"><span data-i18n="app.sync"></span><span class="menu-val" id="syncVal"></span></button>
+      <button data-act="install"><span data-i18n="app.install"></span></button>
       <button data-act="calendar"><span data-i18n="app.calendar"></span></button>
       <button data-act="export"><span data-i18n="app.exportData"></span></button>
       <button data-act="import"><span data-i18n="app.importData"></span></button>
@@ -233,6 +243,7 @@
 <script src="js/travel.js"></script>
 <script src="js/review.js"></script>
 <script src="js/calendar.js"></script>
+<script src="js/sync.js"></script>
 <script src="js/today.js"></script>
 </body>
 </html>
