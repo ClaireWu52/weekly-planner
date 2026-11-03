@@ -348,7 +348,7 @@ dialog form { padding: 20px 22px 18px; }
 /* ---------- toast ---------- */
 .toast {
   position: fixed; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); z-index: 80;
-  display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 24px);
+  display: flex; align-items: center; gap: 10px; width: max-content; max-width: calc(100vw - 24px);
   padding: 10px 12px 10px 16px; border-radius: 10px;
   background: var(--accent); color: var(--accent-ink); font-size: 14px;
   opacity: 0; pointer-events: none; transform: translate(-50%, 12px);
@@ -357,8 +357,10 @@ dialog form { padding: 20px 22px 18px; }
 .toast.show { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
 .toast button {
   border: 0; background: transparent; color: inherit; padding: 2px 4px;
-  font-weight: 600; text-decoration: underline; text-underline-offset: 3px;
+  font-weight: 600; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap;
 }
+/* phones: sit above the bottom navigation */
+@media (max-width: 860px) { .toast { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); } }
 
 /* ---------- print view (settings + paper preview) ---------- */
 .print-layout {

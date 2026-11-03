@@ -16,7 +16,8 @@
       addHabit: '添加一个习惯', addDaily: '添加一个每日任务', addTodo: '添加一个待办',
       habitsHint: '想多做或少做的事，不用每天打卡，做到就点 + 或 −。',
       dailiesHint: '每天或固定几天要做一次的事，做完打勾，第二天重置。',
-      todosHint: '只做一次的事，可以设截止日期和子任务，做完就结束。',
+      todosHint: '只做一次的事，可以设截止日期和子任务，做完就结束。写「周五 交作业」会自动设截止日期。',
+      addedDue: (d) => `已添加，截止 ${d}`,
       habitsEmpty: '习惯没有固定时间。做到一次好习惯就点 +，犯了坏习惯就点 −。',
       dailiesEmpty: '每日任务按你选的星期重复，第二天自动重置。',
       todosEmpty: '所有要做的事都放这里。加上截止日期，快到期的会排在最前面。',
@@ -48,7 +49,8 @@
       addHabit: 'Add a habit', addDaily: 'Add a daily', addTodo: 'Add a to-do',
       habitsHint: 'Things to do more or less of. No schedule; tap + or − whenever it happens.',
       dailiesHint: 'Things to do once a day, or on set days. Tick them off; they reset tomorrow.',
-      todosHint: 'One-off things, with an optional due date and checklist. Done is done.',
+      todosHint: 'One-off things, with an optional due date and checklist. Type "essay due fri" to set the due date.',
+      addedDue: (d) => `Added, due ${d}`,
       habitsEmpty: 'Habits have no schedule. Tap + when you do a good one, − when you slip.',
       dailiesEmpty: 'Dailies repeat on the weekdays you pick and reset every day.',
       todosEmpty: 'Everything you need to get done. Add a due date and it rises to the top as it gets close.',
@@ -561,12 +563,14 @@
     if (!title) return;
     const kind = f.dataset.add;
     const today = LO.todayKey();
+    // a date typed at the start or end of a to-do becomes its due date
+    const parsed = kind === 'todo' ? LO.quickDate(title) : { title, due: '' };
     LO.mutate(T, (s) => {
       const base = { id: uid(), title, notes: '', created: today };
       if (kind === 'habit') s.habits.push(Object.assign(base, { cat: 'health', up: true, down: false, log: {} }));
       else if (kind === 'daily') s.dailies.push(Object.assign(base, { cat: 'health', days: [1, 1, 1, 1, 1, 1, 1], done: {} }));
-      else s.todos.push(Object.assign(base, { cat: 'other', due: todoFilter === 'today' ? today : '', pri: 1, checklist: [], done: false, doneAt: '', focus: '' }));
-    });
+      else s.todos.push(Object.assign(base, { title: parsed.title, cat: 'other', due: parsed.due || (todoFilter === 'today' ? today : ''), pri: 1, checklist: [], done: false, doneAt: '', focus: '' }));
+    }, parsed.due ? t('addedDue')(LO.dueInfo(parsed.due).text) : null);
     const again = $(`[data-add="${kind}"] input`, view);
     if (again) again.focus();
   });
