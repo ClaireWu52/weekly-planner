@@ -78,4 +78,29 @@
     eq(merge3({}, { k: 1 }, { k: 2 }, false), { k: 2 });
     eq(merge3({}, { k: { a: 1 } }, { k: { b: 2 } }, false), { k: { a: 1, b: 2 } });
   });
+
+  const { pickSection } = window.LO.syncMerge;
+  const phone = { todos: [{ id: 'p1', title: 'from the phone' }] };
+  const fresh = { todos: [{ id: 'n1', title: 'just added on the new computer' }] };
+
+  test('pickSection: a device joining sync takes the cloud copy, even if it changed more recently', () => {
+    eq(pickSection(undefined, fresh, phone, 2000, 1000, true), phone);
+  });
+
+  test('pickSection: without a base and not joining (after an import), the newer copy wins', () => {
+    eq(pickSection(undefined, fresh, phone, 2000, 1000, false), fresh, 'the import is newer');
+    eq(pickSection(undefined, fresh, phone, 1000, 2000, false), phone);
+  });
+
+  test('pickSection: with a base, both sides are combined, joining or not', () => {
+    const base = { todos: [] };
+    const both = { todos: [{ id: 'n1', title: 'just added on the new computer' }, { id: 'p1', title: 'from the phone' }] };
+    eq(pickSection(base, fresh, phone, 2000, 1000, false), both);
+    eq(pickSection(base, fresh, phone, 2000, 1000, true), both);
+  });
+
+  test('pickSection: a section only one side has is kept', () => {
+    eq(pickSection(undefined, fresh, undefined, 0, 0, true), fresh, 'not in the cloud yet');
+    eq(pickSection(undefined, null, phone, 0, 0, false), phone, 'not on this device yet');
+  });
 })();

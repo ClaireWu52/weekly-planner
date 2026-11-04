@@ -9,6 +9,11 @@
  *   anything else  (text, numbers, plain lists) taken from the side that changed;
  *                  when both changed it, from the side given as the winner
  *
+ * pickSection decides one section of a sync round: combined against the base when
+ * there is one; without a base (first sync on this device, or after importing a
+ * backup) the cloud copy wins when this device is joining, otherwise the more
+ * recently changed copy wins whole.
+ *
  * LO.syncMerge has no page or storage behind it, so tests can run it on its own.
  */
 (() => {
@@ -94,5 +99,15 @@
     });
   }
 
-  LO.syncMerge = { merge3, same };
+  // base: the section as both sides last agreed (undefined if none); ls / rs: when
+  // each side last changed it; joining: this device just turned sync on
+  function pickSection(base, local, remote, ls, rs, joining) {
+    if (remote == null) return local;
+    if (local == null) return remote;
+    if (base !== undefined) return merge3(base, local, remote, (ls || 0) >= (rs || 0));
+    if (joining) return remote;
+    return (rs || 0) > (ls || 0) ? remote : local;
+  }
+
+  LO.syncMerge = { merge3, same, pickSection };
 })();

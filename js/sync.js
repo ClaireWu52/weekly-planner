@@ -65,7 +65,7 @@
   const readBase = () => LO.readJSON(BASE_KEY);
   const saveBase = (p) => { try { localStorage.setItem(BASE_KEY, JSON.stringify(p)); } catch (_) { clearBase(); } };
   const clearBase = () => { try { localStorage.removeItem(BASE_KEY); } catch (_) { /* ignore */ } };
-  const { merge3, same } = LO.syncMerge;
+  const { merge3, same, pickSection } = LO.syncMerge;
 
   let status = 'off';
   let statusMsg = '';
@@ -199,8 +199,9 @@
    * upload the result if the cloud is missing anything, and load it here if this
    * device is. Sections are combined against the copy both sides last agreed on
    * (the base, kept on this device), so changes made on each side are all kept.
-   * Without a base (the first sync, or right after importing a backup) the more
-   * recently changed copy of each section wins whole.
+   * Without a base, a device that just turned sync on takes the cloud copy of each
+   * section (cfg.join), as the settings dialog promises; right after importing a
+   * backup the more recently changed copy wins whole, which is the import.
    * If another device saved between reading and saving here, its version is
    * fetched from the gist's history, combined in too, and saved again.
    * When this device would change but someone is typing, only the upload happens;
@@ -232,11 +233,7 @@
       const L = bundle.parts[name];
       const R = rparts[name];
       const ls = bundle.stamps[name] || 0;
-      let M;
-      if (R == null) M = L;
-      else if (L == null) M = R;
-      else if (base && base[name] !== undefined) M = merge3(base[name], L, R, ls >= (rs[name] || 0));
-      else M = (rs[name] || 0) > ls ? R : L;
+      const M = pickSection(base ? base[name] : undefined, L, R, ls, rs[name], !!cfg.join);
       out.parts[name] = M;
       out.stamps[name] = Math.max(ls, rs[name] || 0);
       if (!same(M, R)) upload = true;
@@ -287,6 +284,8 @@
     let result;
     try {
       result = await exchange(opts);
+      // joined once the cloud copy has been taken here (not when the round was left for later)
+      if (cfg.join && result !== 'later') delete cfg.join;
       cfg.lastSync = Date.now();
       saveCfg();
       setStatus('ok');
@@ -344,8 +343,12 @@
         if (!token) return t('errToken');
         if (pass.length < 6) return t('errPass');
         if (!window.crypto || !crypto.subtle) return t('errCrypto');
-        const changed = token !== cfg.token || pass !== cfg.pass;
-        if (changed) { cfg = { token, pass, on: true }; meta = { stamps: meta.stamps }; clearBase(); }
+        // A new token with the same password (say the old one expired) is the same sync:
+        // keep the gist and the base so edits made meanwhile are combined as usual.
+        // Anything else is joining a sync, and the cloud copy wins.
+        const tokenOnly = !!cfg.token && pass === cfg.pass && token !== cfg.token;
+        if (tokenOnly) cfg = Object.assign({}, cfg, { token });
+        else if (token !== cfg.token || pass !== cfg.pass) { cfg = { token, pass, on: true, join: true }; clearBase(); }
         cfg.on = true;
         cfg.photos = $('input[name="sphotos"]', dlg).checked;
         saveCfg();
@@ -392,6 +395,8 @@
     parts().forEach(({ name }) => { meta.stamps[name] = now; });
     saveMeta();
     clearBase();
+    // the import wins, even on a device that was about to take the cloud copy
+    if (cfg.join) { delete cfg.join; saveCfg(); }
   }
 
   const photosOn = () => enabled() && cfg.photos !== false;
