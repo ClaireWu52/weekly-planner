@@ -2,7 +2,8 @@
  * Sync between devices through a private GitHub Gist.
  * Everything is encrypted in the browser (AES-GCM, key from the sync password
  * via PBKDF2) before upload, so the gist only holds ciphertext.
- * Each section syncs on its own: the newer copy of each section wins.
+ * Each section syncs on its own, combining the changes made on each device
+ * (sync-merge.js), so edits on the phone and the computer are both kept.
  * Wardrobe photos sync separately (sync-photos.js), into a second gist, when
  * that's switched on.
  */
@@ -12,6 +13,7 @@
   const { $, esc } = LO;
   const CFG_KEY = 'planner:sync';
   const META_KEY = 'planner:sync-meta';
+  const BASE_KEY = 'planner:sync-base';
   const PLANNER_KEY = 'weekly-planner:v2';
   const DESC = 'My Planner sync (encrypted)';
   const FILE = 'my-planner-sync.json';
@@ -59,6 +61,11 @@
   const saveCfg = () => { try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); } catch (_) { /* ignore */ } };
   const saveMeta = () => { try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch (_) { /* ignore */ } };
   const enabled = () => !!(cfg.token && cfg.pass && cfg.on);
+  // the sections as this device and the cloud last agreed on them
+  const readBase = () => LO.readJSON(BASE_KEY);
+  const saveBase = (p) => { try { localStorage.setItem(BASE_KEY, JSON.stringify(p)); } catch (_) { clearBase(); } };
+  const clearBase = () => { try { localStorage.removeItem(BASE_KEY); } catch (_) { /* ignore */ } };
+  const { merge3, same } = LO.syncMerge;
 
   let status = 'off';
   let statusMsg = '';
@@ -169,6 +176,7 @@
 
   /* ---------------- sync cycle ---------------- */
   let busy = false;
+  let again = false;
   let pushTimer = null;
   const typing = () => {
     const a = document.activeElement;
@@ -181,90 +189,104 @@
     return msg;
   }
 
-  // Upload this device's sections. A section another device changed more recently is
-  // kept as it is in the cloud (not overwritten), then pulled here.
-  async function push() {
-    if (!enabled() || busy) return;
-    busy = true;
-    setStatus('syncing');
-    const behind = [];
-    try {
-      const bundle = localBundle();
-      const text = cfg.gistId ? await readGist() : null;
-      if (text) {
-        const remote = await decrypt(text);
-        const rs = remote.stamps || {};
-        parts().forEach(({ name }) => {
-          if ((rs[name] || 0) > (bundle.stamps[name] || 0) && remote.parts && remote.parts[name] != null) {
-            bundle.parts[name] = remote.parts[name];
-            bundle.stamps[name] = rs[name];
-            behind.push(name);
-          }
-        });
-      }
+  /*
+   * One round: read the cloud copy, combine it with this device's section by section,
+   * upload the result if the cloud is missing anything, and load it here if this
+   * device is. Sections are combined against the copy both sides last agreed on
+   * (the base, kept on this device), so changes made on each side are all kept.
+   * Without a base (the first sync, or right after importing a backup) the more
+   * recently changed copy of each section wins whole.
+   * When this device would change but someone is typing, only the upload happens;
+   * the base stays put, so the next round brings the rest here.
+   */
+  async function exchange(opts) {
+    const mayApply = !!(opts && opts.force) || !typing();
+    const bundle = localBundle();
+    const startStamps = JSON.stringify(meta.stamps);
+    if (!cfg.gistId) cfg.gistId = await findGist();
+    const text = cfg.gistId ? await readGist() : null;
+    if (!text) {
+      // nothing in the cloud yet: claim every section with the current time and upload
+      const now = Date.now();
+      parts().forEach(({ name }) => { if (!bundle.stamps[name]) bundle.stamps[name] = meta.stamps[name] = now; });
+      saveMeta();
       await writeGist(await encrypt(bundle));
+      saveBase(bundle.parts);
+      if (opts && opts.announce) LO.toast(t('uploaded'));
+      return 'same';
+    }
+    const remote = await decrypt(text);
+    const rparts = remote.parts || {};
+    const rs = remote.stamps || {};
+    const base = readBase();
+    const out = { app: 'weekly-planner', v: 4, stamps: {}, parts: {} };
+    const changedHere = [];
+    let upload = false;
+    parts().forEach(({ name }) => {
+      const L = bundle.parts[name];
+      const R = rparts[name];
+      const ls = bundle.stamps[name] || 0;
+      let M;
+      if (R == null) M = L;
+      else if (L == null) M = R;
+      else if (base && base[name] !== undefined) M = merge3(base[name], L, R, ls >= (rs[name] || 0));
+      else M = (rs[name] || 0) > ls ? R : L;
+      out.parts[name] = M;
+      out.stamps[name] = Math.max(ls, rs[name] || 0);
+      if (!same(M, L)) changedHere.push(name);
+      if (!same(M, R)) upload = true;
+    });
+    if (upload) await writeGist(await encrypt(out));
+    if (!changedHere.length) {
+      saveBase(out.parts);
+      return 'same';
+    }
+    // something was edited here while the cloud copy loaded: leave it for the next round
+    flushAll();
+    if (!mayApply || JSON.stringify(meta.stamps) !== startStamps) return 'later';
+    saveBase(out.parts);
+    LO.frozen = true;
+    changedHere.forEach((name) => {
+      const { key } = parts().find((p) => p.name === name);
+      localStorage.setItem(key, JSON.stringify(out.parts[name]));
+    });
+    Object.assign(meta.stamps, out.stamps);
+    saveMeta();
+    return 'reload';
+  }
+
+  async function run(opts) {
+    if (!enabled()) return;
+    if (busy) { again = true; return; }
+    busy = true;
+    again = false;
+    setStatus('syncing');
+    let result;
+    try {
+      result = await exchange(opts);
       cfg.lastSync = Date.now();
       saveCfg();
       setStatus('ok');
     } catch (e) { fail(e); return; } finally { busy = false; }
-    // catch up first; photos sync after the pull, once the wardrobe here is current
-    if (behind.length) pull();
-    else if (LO.syncPhotos) LO.syncPhotos();
+    if (result === 'reload') {
+      sessionStorage.setItem('planner:synced', '1');
+      window.location.reload();
+      return;
+    }
+    // edits made during this round go up next
+    if (again) { schedulePush(); return; }
+    // photos sync once the wardrobe here is current
+    if (result === 'same' && LO.syncPhotos) LO.syncPhotos();
   }
+  const push = () => run();
   function schedulePush() {
     if (!enabled()) return;
     clearTimeout(pushTimer);
     pushTimer = setTimeout(push, 2500);
   }
-
-  // Pull the cloud copy; apply sections that are newer there; push sections newer here.
-  async function pull(opts) {
-    if (!enabled() || busy) return;
-    if (!(opts && opts.force) && typing()) return;
-    busy = true;
-    setStatus('syncing');
-    try {
-      if (!cfg.gistId) cfg.gistId = await findGist();
-      const text = cfg.gistId ? await readGist() : null;
-      if (!text) {
-        // nothing in the cloud yet: claim every section with the current time and upload
-        const now = Date.now();
-        parts().forEach(({ name }) => { if (!meta.stamps[name]) meta.stamps[name] = now; });
-        saveMeta();
-        busy = false;
-        await push();
-        if (opts && opts.announce) LO.toast(t('uploaded'));
-        return;
-      }
-      const remote = await decrypt(text);
-      const rs = remote.stamps || {};
-      const newer = parts().filter(({ name }) => (rs[name] || 0) > (meta.stamps[name] || 0) && remote.parts && remote.parts[name] != null);
-      if (newer.length) {
-        LO.frozen = true;
-        newer.forEach(({ name, key }) => {
-          localStorage.setItem(key, JSON.stringify(remote.parts[name]));
-          meta.stamps[name] = rs[name];
-        });
-        saveMeta();
-        cfg.lastSync = Date.now();
-        saveCfg();
-        sessionStorage.setItem('planner:synced', '1');
-        window.location.reload();
-        return;
-      }
-      const localNewer = parts().some(({ name }) => (meta.stamps[name] || 0) > (rs[name] || 0));
-      busy = false;
-      if (localNewer) { await push(); return; }
-      cfg.lastSync = Date.now();
-      saveCfg();
-      setStatus('ok');
-    } catch (e) {
-      fail(e);
-      return;
-    } finally {
-      busy = false;
-    }
-    if (LO.syncPhotos) LO.syncPhotos();
+  function pull(opts) {
+    if (!(opts && opts.force) && typing()) return Promise.resolve();
+    return run(opts);
   }
 
   LO.onChange = (name) => {
@@ -300,7 +322,7 @@
         if (pass.length < 6) return t('errPass');
         if (!window.crypto || !crypto.subtle) return t('errCrypto');
         const changed = token !== cfg.token || pass !== cfg.pass;
-        if (changed) { cfg = { token, pass, on: true }; meta = { stamps: meta.stamps }; }
+        if (changed) { cfg = { token, pass, on: true }; meta = { stamps: meta.stamps }; clearBase(); }
         cfg.on = true;
         cfg.photos = $('input[name="sphotos"]', dlg).checked;
         saveCfg();
@@ -316,6 +338,7 @@
       onDelete: on ? () => {
         cfg = { token: '', pass: '', on: false };
         saveCfg();
+        clearBase();
         setStatus('off');
         LO.toast(t('disabled'));
       } : null
@@ -337,11 +360,13 @@
     setInterval(() => { if (document.visibilityState === 'visible') pull(); }, 5 * 60 * 1000);
   }
 
-  // After importing a backup, mark every section as just changed so the import wins over the cloud copy.
+  // After importing a backup, mark every section as just changed and forget the base,
+  // so the import wins over the cloud copy instead of being combined with it.
   function touchAll() {
     const now = Date.now();
     parts().forEach(({ name }) => { meta.stamps[name] = now; });
     saveMeta();
+    clearBase();
   }
 
   const photosOn = () => enabled() && cfg.photos !== false;

@@ -44,6 +44,7 @@ const SHELL = [
   'js/review.js',
   'js/ics-parse.js',
   'js/calendar.js',
+  'js/sync-merge.js',
   'js/sync.js',
   'js/sync-photos.js',
   'js/today.js'
