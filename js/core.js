@@ -446,7 +446,8 @@
       fn();
     });
     dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
-    dlg.addEventListener('close', () => { fctx = null; });
+    // 'close' arrives a moment after dlg.close(); if another form has opened since, keep it
+    dlg.addEventListener('close', () => { if (!dlg.open) fctx = null; });
   }
 
   /* ---------------- menu, backup, keyboard ---------------- */
