@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planner UI tests</title>
+<style>
+  :root { --bg: #f6f6f4; --ink: #1d2433; --muted: #6b7280; --ok: #1f8a5b; --bad: #c2410c; --line: #e3e3df; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #15181e; --ink: #e8eaee; --muted: #9aa1ad; --ok: #4cc38a; --bad: #f08a5d; --line: #2a2f38; } }
+  body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "PingFang SC", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  .sum { margin: 0 0 16px; color: var(--muted); }
+  .sum b.ok { color: var(--ok); }
+  .sum b.bad { color: var(--bad); }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  li::before { content: "✓ "; color: var(--ok); font-weight: 700; }
+  li.fail::before { content: "✗ "; color: var(--bad); }
+  li code { display: block; margin-top: 4px; color: var(--bad); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .ui-stage { position: fixed; left: -10000px; top: 0; width: 1100px; height: 800px; }
+  .ui-frame { width: 1100px; height: 800px; border: 0; }
+  .sum a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Planner UI tests</h1>
+  <p class="sum" id="sum">Running… each test opens the app on its own, so this takes a few seconds. Your saved data is not used or changed.</p>
+  <ul id="list"></ul>
+  <p class="sum">The calculation tests are <a href="./">here</a>.</p>
+</main>
+<!-- the app runs in a hidden frame with storage in memory only (see ui-harness.js) -->
+<div class="ui-stage" id="stage" aria-hidden="true"></div>
+<script src="harness.js"></script>
+<script src="ui-harness.js"></script>
+<script src="ui.test.js"></script>
+<script>
+  (async () => {
+    const results = await window.runUiTests(document.getElementById('stage'));
+    const failed = results.filter((r) => r.error).length;
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    document.getElementById('list').innerHTML = results.map((r) => `<li class="${r.error ? 'fail' : ''}">${esc(r.name)}${r.error ? `<code>${esc(r.error)}</code>` : ''}</li>`).join('');
+    const sum = document.getElementById('sum');
+    sum.innerHTML = failed
+      ? `<b class="bad">${failed} failed</b>, ${results.length - failed} passed`
+      : `<b class="ok">All ${results.length} passed</b>`;
+    // read by tests/ui-run.js
+    sum.dataset.done = '1';
+    sum.dataset.failed = String(failed);
+    document.title = `${failed ? '✗' : '✓'} Planner UI tests`;
+  })();
+</script>
+</body>
+</html>

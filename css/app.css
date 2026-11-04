@@ -1035,3 +1035,6 @@ button.stat:hover { border-color: var(--line-2); }
 .wel-n { flex: 0 0 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--seg); font-size: 13px; font-weight: 600; }
 .wel-steps li.is-done .wel-n { background: var(--accent); color: var(--accent-ink); }
 .wel-n svg { width: 14px; height: 14px; }
+.money-fixed { margin-bottom: 14px; display: grid; gap: 8px; }
+.money-fixed h2 { margin: 0; font-size: 16px; }
+.money-fixed .hint { margin: 0; }

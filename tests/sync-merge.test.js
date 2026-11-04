@@ -103,4 +103,22 @@
     eq(pickSection(undefined, fresh, undefined, 0, 0, true), fresh, 'not in the cloud yet');
     eq(pickSection(undefined, null, phone, 0, 0, false), phone, 'not on this device yet');
   });
+
+  const { describe } = window.LO.syncMerge;
+
+  test('describe: counts added, removed and changed items in each list', () => {
+    const before = { todos: [todo('a', 'A'), todo('b', 'B')], habits: [todo('h', 'H')], goal: 8 };
+    const after = { todos: [todo('a', 'A2'), todo('c', 'C'), todo('d', 'D')], habits: [todo('h', 'H')], goal: 8 };
+    eq(describe(before, after), { lists: { todos: { added: 2, removed: 1, changed: 1 } }, other: false });
+  });
+
+  test('describe: changes outside the lists count as other', () => {
+    eq(describe({ todos: [], goal: 8 }, { todos: [], goal: 10 }), { lists: {}, other: true });
+    eq(describe({ days: { '2026-11-01': 1 } }, { days: { '2026-11-01': 2 } }), { lists: {}, other: true });
+  });
+
+  test('describe: a section that is itself a list, and a list that is new', () => {
+    eq(describe([todo('a', 'A')], [todo('a', 'A'), todo('b', 'B')]), { lists: { '': { added: 1, removed: 0, changed: 0 } }, other: false });
+    eq(describe({}, { links: [todo('x', 'X')] }), { lists: { links: { added: 1, removed: 0, changed: 0 } }, other: false });
+  });
 })();

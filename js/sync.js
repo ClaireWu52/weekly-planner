@@ -34,6 +34,8 @@
       errToken: '请填写令牌。', errPass: '同步密码至少 6 位。', errAuth: '令牌无效，或者没有勾选 gist 权限。',
       errDecrypt: '同步密码不对，解不开云端的数据。', errNet: '连不上 GitHub，会稍后自动重试。', errCrypto: '这个浏览器不支持加密，需要用 https 打开网站。',
       enabled: '同步已开启', disabled: '同步已关闭，云端的数据还保留着', uploaded: '已把这台设备的数据上传', pulled: '已更新为最新的同步数据',
+      got: (parts, more) => `已同步另一台设备的修改：${parts.join('、')}${more ? (parts.length ? `，另有 ${more} 处修改` : `${more} 处修改`) : ''}`,
+      names: { 'tasks.todos': '待办', 'tasks.dailies': '每日任务', 'tasks.habits': '习惯', 'health.workouts': '运动记录', 'planner.recurring': '课表安排', 'money.entries': '记账', 'money.fixed': '固定支出', 'records.records': '成长记录', 'learn.books': '书', 'learn.courses': '学习课程', 'learn.links': '收藏', 'travel.trips': '行程', 'dates.list': '纪念日', 'wardrobe.items': '衣服', 'wardrobe.outfits': '搭配', 'wishes.wishes': '心愿', 'term.terms': '学期', 'food.options': '吃什么选项' },
       justNow: '刚刚', minAgo: (n) => `${n} 分钟前`, menuOff: '未开启'
     },
     en: {
@@ -49,6 +51,8 @@
       errToken: 'Add the token.', errPass: 'Use at least 6 characters.', errAuth: 'The token is invalid or missing the gist permission.',
       errDecrypt: 'Wrong sync password: the cloud data could not be decrypted.', errNet: "Couldn't reach GitHub. Will retry soon.", errCrypto: 'This browser cannot encrypt here. Open the site over https.',
       enabled: 'Sync is on', disabled: 'Sync is off. The cloud copy is kept.', uploaded: "Uploaded this device's data", pulled: 'Updated to the latest synced data',
+      got: (parts, more) => `Synced from your other device: ${parts.join(', ')}${more ? (parts.length ? `, and ${more} other change${more > 1 ? 's' : ''}` : `${more} change${more > 1 ? 's' : ''}`) : ''}`,
+      names: { 'tasks.todos': 'to-dos', 'tasks.dailies': 'dailies', 'tasks.habits': 'habits', 'health.workouts': 'workouts', 'planner.recurring': 'schedule events', 'money.entries': 'spending', 'money.fixed': 'fixed costs', 'records.records': 'growth log', 'learn.books': 'books', 'learn.courses': 'courses', 'learn.links': 'links', 'travel.trips': 'trips', 'dates.list': 'special days', 'wardrobe.items': 'clothes', 'wardrobe.outfits': 'outfits', 'wishes.wishes': 'wishes', 'term.terms': 'semesters', 'food.options': 'food options' },
       justNow: 'just now', minAgo: (n) => `${n} min ago`, menuOff: 'Off'
     }
   });
@@ -65,7 +69,7 @@
   const readBase = () => LO.readJSON(BASE_KEY);
   const saveBase = (p) => { try { localStorage.setItem(BASE_KEY, JSON.stringify(p)); } catch (_) { clearBase(); } };
   const clearBase = () => { try { localStorage.removeItem(BASE_KEY); } catch (_) { /* ignore */ } };
-  const { merge3, same, pickSection } = LO.syncMerge;
+  const { merge3, same, pickSection, describe } = LO.syncMerge;
 
   let status = 'off';
   let statusMsg = '';
@@ -207,6 +211,25 @@
    * When this device would change but someone is typing, only the upload happens;
    * the base stays put, so the next round brings the rest here.
    */
+  // "to-dos +3, workouts +1, and 2 other changes" for what a round brought to this device
+  let note = '';
+  function summary(list) {
+    const names = t('names');
+    const parts = [];
+    let more = 0;
+    list.forEach(({ name, d }) => {
+      Object.entries(d.lists).forEach(([key, c]) => {
+        const label = names[key ? `${name}.${key}` : name];
+        if (!label) { more += c.added + c.removed + c.changed; return; }
+        if (c.added) parts.push(`${label} +${c.added}`);
+        if (c.removed) parts.push(`${label} −${c.removed}`);
+        more += c.changed;
+      });
+      if (d.other) more++;
+    });
+    return parts.length || more ? t('got')(parts, more) : '';
+  }
+
   async function exchange(opts) {
     const mayApply = !!(opts && opts.force) || !typing();
     const bundle = localBundle();
@@ -272,6 +295,7 @@
     });
     Object.assign(meta.stamps, out.stamps);
     saveMeta();
+    note = summary(changedHere.map((name) => describe(bundle.parts[name], out.parts[name])).map((d, i) => ({ name: changedHere[i], d })));
     return 'reload';
   }
 
@@ -291,7 +315,7 @@
       setStatus('ok');
     } catch (e) { fail(e); return; } finally { busy = false; }
     if (result === 'reload') {
-      sessionStorage.setItem('planner:synced', '1');
+      sessionStorage.setItem('planner:synced', note || '1');
       window.location.reload();
       return;
     }
@@ -375,9 +399,10 @@
 
   function start() {
     setStatus(enabled() ? 'ok' : 'off');
-    if (sessionStorage.getItem('planner:synced')) {
+    const synced = sessionStorage.getItem('planner:synced');
+    if (synced) {
       sessionStorage.removeItem('planner:synced');
-      LO.toast(t('pulled'));
+      LO.toast(synced === '1' ? t('pulled') : synced, [], 7000);
     }
     if (!enabled()) return;
     pull({ force: true });

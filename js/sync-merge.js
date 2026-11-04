@@ -14,6 +14,9 @@
  * backup) the cloud copy wins when this device is joining, otherwise the more
  * recently changed copy wins whole.
  *
+ * describe counts what changed in a section's lists of {id} items (its own top-level
+ * lists, or the section itself when it is one), for the "what came in" note after a sync.
+ *
  * LO.syncMerge has no page or storage behind it, so tests can run it on its own.
  */
 (() => {
@@ -109,5 +112,33 @@
     return (rs || 0) > (ls || 0) ? remote : local;
   }
 
-  LO.syncMerge = { merge3, same, pickSection };
+  // { lists: { key: { added, removed, changed } }, other: bool } between two copies of a
+  // section; key is '' when the section itself is the list. other: something outside
+  // those lists changed too.
+  function describe(before, after) {
+    const lists = {};
+    const count = (key, a, b) => {
+      const A = new Map((a || []).map((x) => [x.id, x]));
+      const B = new Map((b || []).map((x) => [x.id, x]));
+      const c = { added: 0, removed: 0, changed: 0 };
+      B.forEach((x, id) => { if (!A.has(id)) c.added++; else if (!same(A.get(id), x)) c.changed++; });
+      A.forEach((x, id) => { if (!B.has(id)) c.removed++; });
+      if (c.added || c.removed || c.changed) lists[key] = c;
+    };
+    let other = false;
+    if (isIdList(before) || isIdList(after)) count('', isIdList(before) ? before : [], isIdList(after) ? after : []);
+    else if (isObj(before) || isObj(after)) {
+      const a = isObj(before) ? before : {};
+      const b = isObj(after) ? after : {};
+      new Set(Object.keys(a).concat(Object.keys(b))).forEach((k) => {
+        const la = a[k] === undefined || isIdList(a[k]);
+        const lb = b[k] === undefined || isIdList(b[k]);
+        if (la && lb && (a[k] !== undefined || b[k] !== undefined)) count(k, a[k], b[k]);
+        else if (!same(a[k], b[k])) other = true;
+      });
+    } else other = !same(before, after);
+    return { lists, other };
+  }
+
+  LO.syncMerge = { merge3, same, pickSection, describe };
 })();

@@ -30,6 +30,9 @@ jobs:
       # stop here, without publishing, if any test fails (Node comes with the runner)
       - name: Run tests
         run: node tests/run.js
+      # the same app clicked through in headless Chrome, which the runner already has
+      - name: Run UI tests
+        run: node tests/ui-run.js
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
