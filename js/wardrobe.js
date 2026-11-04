@@ -65,7 +65,7 @@
   let loaded = false;
   const loadPhotos = () => LO.files.all().then((all) => {
     Object.entries(all).forEach(([k, v]) => { if (k.startsWith('ward:')) cache.set(k, v); });
-  }).catch(() => {}).finally(() => { loaded = true; if (LO.route() === 'wardrobe') render(); });
+  }).catch(() => {}).finally(() => { loaded = true; if (LO.route() === 'wardrobe') render(); else if (LO.route() === 'today') LO.refresh(); });
   loadPhotos();
   // sync-photos.js calls this after fetching photos from another device
   LO.wardrobe = { reloadPhotos: loadPhotos };
@@ -203,9 +203,17 @@
     LO.mutate(W, (s) => { s.items.forEach((x) => { if (ids.includes(x.id)) { x.worn++; x.lastWorn = today; } }); }, t('woreToast'));
   }
 
-  function randomOutfit() {
+  // seasons: which seasons' clothes fit (this season by default); cold adds outerwear.
+  // Clothes worn in the last three days are left out when there's anything else.
+  function randomOutfit(o) {
+    const opts = o || {};
     const s = seasonNow();
-    const pool = (c) => W.s.items.filter((x) => x.cat === c && fits(x, s));
+    const seasons = opts.seasons || [s];
+    const fresh = (x) => !x.lastWorn || LO.dayDiff(x.lastWorn, LO.todayKey()) > 3;
+    const pool = (c) => {
+      const all = W.s.items.filter((x) => x.cat === c && seasons.some((y) => fits(x, y)));
+      return opts.seasons && all.some(fresh) ? all.filter(fresh) : all;
+    };
     const any = (arr) => arr[Math.floor(Math.random() * arr.length)];
     const tops = pool('top');
     const bottoms = pool('bottom');
@@ -216,7 +224,8 @@
     if (dresses.length && (!canSet || Math.random() < 0.35)) out.push(any(dresses));
     else { out.push(any(tops)); out.push(any(bottoms)); }
     if (pool('shoes').length) out.push(any(pool('shoes')));
-    if ((s === 'winter' || s === 'autumn' || Math.random() < 0.2) && pool('outer').length) out.push(any(pool('outer')));
+    const cold = opts.cold != null ? opts.cold : s === 'winter' || s === 'autumn' || Math.random() < 0.2;
+    if (cold && pool('outer').length) out.push(any(pool('outer')));
     if (pool('bag').length && Math.random() < 0.5) out.push(any(pool('bag')));
     if (pool('acc').length && Math.random() < 0.4) out.push(any(pool('acc')));
     return out.map((x) => x.id);
@@ -291,4 +300,67 @@
   });
 
   LO.view('wardrobe', { render });
+
+  /* ---------------- Today: weather and what to wear ---------------- */
+  LO.strings('outfitToday', {
+    zh: {
+      title: '今天穿什么', setCity: '设置所在城市', setHint: '填上城市，就能按今天的天气推荐穿搭。', change: '换城市',
+      cold: '有点凉，记得加件外套。', hot: '很热，穿轻薄一点。', wet: '可能下雨，带把伞。', again: '换一套', wear: '就穿这套',
+      noClothes: '衣橱里的衣服多一些，这里就能帮你搭。', addClothes: '去添加衣服', unworn: (n, d) => `「${n}」已经 ${d} 天没穿了`, unwornNew: (n) => `「${n}」还没穿过`
+    },
+    en: {
+      title: 'What to wear', setCity: 'Set your city', setHint: "Add your city to get outfit ideas for today's weather.", change: 'Change city',
+      cold: "It's cool out. Bring a jacket.", hot: "It's hot. Dress light.", wet: 'Rain likely. Take an umbrella.', again: 'Another', wear: 'Wear this',
+      noClothes: 'Add a few more clothes and outfit ideas show up here.', addClothes: 'Add clothes', unworn: (n, d) => `You haven't worn "${n}" in ${d} days`, unwornNew: (n) => `You haven't worn "${n}" yet`
+    }
+  });
+  const ot = LO.ns('outfitToday');
+  let todayPick = null;
+  let todayPickDay = '';
+
+  // the seasons that fit a day's high, and whether it calls for outerwear
+  const seasonsFor = (wx) => (wx.hi >= 26 ? ['summer'] : wx.hi >= 18 ? ['spring', 'autumn'] : wx.hi >= 8 ? ['autumn', 'spring', 'winter'] : ['winter']);
+
+  function todayHTML() {
+    const HW = LO.homeWeather;
+    if (!HW) return '';
+    const head = (link) => `<header class="card-head"><h2>${esc(ot('title'))}</h2>${link}</header>`;
+    if (!HW.city()) {
+      return `<section class="card o11 outfit-today">${head('')}<p class="hint">${esc(ot('setHint'))}</p><button type="button" class="btn sm" data-wcity>${esc(ot('setCity'))}</button></section>`;
+    }
+    const wx = HW.today();
+    const link = `<button type="button" class="link link-btn" data-wcity>${esc(ot('change'))}</button>`;
+    let h = `<section class="card o11 outfit-today">${head(link)}`;
+    if (!wx) return `${h}<p class="hint">${esc(HW.missed() ? HW.notFound() : LO.t('wardrobe.loading'))}</p></section>`;
+    const tips = [wx.lo < 14 ? ot('cold') : '', wx.hi >= 30 ? ot('hot') : '', wx.wet ? ot('wet') : ''].filter(Boolean);
+    h += `<p class="outfit-wx">${esc(wx.line)}</p>${tips.length ? `<p class="hint">${esc(tips.join(' '))}</p>` : ''}`;
+    const today = LO.todayKey();
+    if (todayPickDay !== today || !todayPick || !todayPick.every((id) => W.s.items.some((x) => x.id === id))) {
+      todayPick = randomOutfit({ seasons: seasonsFor(wx), cold: wx.lo < 14 });
+      todayPickDay = today;
+    }
+    if (!todayPick) {
+      h += `<p class="hint">${esc(ot('noClothes'))} <a class="link" href="#/life/wardrobe">${esc(ot('addClothes'))}</a></p>`;
+    } else {
+      const byId = new Map(W.s.items.map((x) => [x.id, x]));
+      const worn = todayPick.every((id) => byId.get(id).lastWorn === today);
+      h += `<div class="outfit-row">${todayPick.map((id) => byId.get(id)).map((it) => `<span class="outfit-piece">${thumb(it, 'of-thumb')}<small>${esc(it.name)}</small></span>`).join('')}</div>`
+        + `<div class="row"><button type="button" class="btn sm" data-wtoday="again">${esc(ot('again'))}</button><button type="button" class="btn sm primary" data-wtoday="wear"${worn ? ' disabled' : ''}>${esc(worn ? t('woreToast') : ot('wear'))}</button></div>`;
+    }
+    // one piece that's been sitting in the closet
+    const old = W.s.items.filter((x) => x.lastWorn ? LO.dayDiff(x.lastWorn, today) >= 90 : LO.dayDiff(x.created, today) >= 30)
+      .sort((a, b) => (a.lastWorn || a.created) < (b.lastWorn || b.created) ? -1 : 1)[0];
+    if (old) h += `<p class="hint outfit-old">👕 ${esc(old.lastWorn ? ot('unworn')(old.name, LO.dayDiff(old.lastWorn, today)) : ot('unwornNew')(old.name))}</p>`;
+    return `${h}</section>`;
+  }
+
+  const todayView = $('#view-today');
+  if (todayView) todayView.addEventListener('click', (e) => {
+    if (e.target.closest('[data-wcity]')) { LO.homeWeather.openCity(); return; }
+    const b = e.target.closest('[data-wtoday]');
+    if (!b) return;
+    if (b.dataset.wtoday === 'again') { todayPick = null; LO.refresh(); }
+    else if (todayPick) wear(todayPick);
+  });
+  LO.wardrobe.todayHTML = todayHTML;
 })();

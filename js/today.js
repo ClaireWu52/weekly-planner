@@ -18,13 +18,17 @@
       slept: (h) => `昨晚睡了 ${h} 小时`, logSleep: '记录昨晚的睡眠', openHealth: '打开健康',
       habits: '习惯', wishes: '心愿进度', openWishes: '全部心愿',
       timer: '专注计时', work: '专注', brk: '休息', start: '开始', pause: '暂停', resume: '继续', reset: '重置', skip: '跳过',
-      sessions: (n, m) => `今天专注了 ${n} 次，共 ${m} 分钟`, workDone: '专注完成，休息一下吧', workDoneFor: (c) => `专注完成，已记到「${c}」。休息一下吧`, focusOn: '专注在', noCourse: '不选课程', breakDone: '休息结束，可以开始下一轮了',
+      sessions: (n, m) => `今天专注了 ${n} 次，共 ${m} 分钟`, workDone: '专注完成，休息一下吧', workDoneFor: (c) => `专注完成，已记到「${c}」。休息一下吧`, focusOn: '专注在', noCourse: '不选课程', focusTodo: '做哪件待办', noTodo: '不选待办', breakDone: '休息结束，可以开始下一轮了',
       startBreak: '开始休息', focusing: '专注中', resting: '休息中', length: '时长',
       news: '今日新闻', moreNews: '全部新闻',
       month: '本月重点', openPlan: '全年目标',
       streakOn: (n) => `连续活跃 ${n} 天`, streakBest: '，最长纪录', streakKeep: (n) => `已经连续 ${n} 天了，今天做完一件事就能接上`,
       streakTip: '完成待办或每日任务、记运动、专注、读完书、写成长记录，都算活跃。',
       timerMore: '展开', timerLess: '收起',
+      evening: '晚上的收尾', quick: '快速记录', outfit: '天气和穿搭', dates: '快到的纪念日',
+      quickPh: '随手记：周五交作业、喝了2杯水、跑步30分钟、花了25午饭…',
+      qWater: (n) => `已记录：喝水 +${n} 杯`, qWorkout: (w, m) => `已记录：${w} ${m} 分钟`, qMood: '已记录今天的心情',
+      qSleep: (a, b) => `已记录睡眠 ${a}–${b}`, qSpend: (a, n) => `已记一笔：${a}${n ? ' ' + n : ''}`, qTodo: '已加到待办', qTodoDue: (d) => `已加到待办，截止 ${d}`,
       quiet: '这些还没有内容，先收起来了：', quietTail: '。有内容后会自动出现。'
     },
     en: {
@@ -37,13 +41,17 @@
       slept: (h) => `Slept ${h} h last night`, logSleep: "Log last night's sleep", openHealth: 'Open Health',
       habits: 'Habits', wishes: 'Wishes', openWishes: 'All wishes',
       timer: 'Focus timer', work: 'Focus', brk: 'Break', start: 'Start', pause: 'Pause', resume: 'Resume', reset: 'Reset', skip: 'Skip',
-      sessions: (n, m) => `${n} sessions today, ${m} min`, workDone: 'Session done. Take a break.', workDoneFor: (c) => `Session done and added to "${c}". Take a break.`, focusOn: 'Focusing on', noCourse: 'No course', breakDone: 'Break over. Ready for the next one.',
+      sessions: (n, m) => `${n} sessions today, ${m} min`, workDone: 'Session done. Take a break.', workDoneFor: (c) => `Session done and added to "${c}". Take a break.`, focusOn: 'Focusing on', noCourse: 'No course', focusTodo: 'Working on', noTodo: 'No to-do', breakDone: 'Break over. Ready for the next one.',
       startBreak: 'Start break', focusing: 'Focusing', resting: 'On break', length: 'Length',
       news: "Today's news", moreNews: 'All news',
       month: 'This month', openPlan: 'Yearly goals',
       streakOn: (n) => `${n}-day streak`, streakBest: ', your longest', streakKeep: (n) => `${n}-day streak. Do one thing today to keep it going`,
       streakTip: 'Finishing a to-do or daily, logging a workout, a focus session, finishing a book or a growth log entry all count.',
       timerMore: 'More', timerLess: 'Less',
+      evening: 'Evening wrap-up', quick: 'Quick add', outfit: 'Weather and outfit', dates: 'Special days coming up',
+      quickPh: 'Jot anything: essay due fri, water 2, run 30 min, spent 8 on coffee…',
+      qWater: (n) => `Logged ${n} cup${n > 1 ? 's' : ''} of water`, qWorkout: (w, m) => `Logged ${w}, ${m} min`, qMood: "Logged today's mood",
+      qSleep: (a, b) => `Logged sleep ${a}–${b}`, qSpend: (a, n) => `Spent ${a}${n ? ' on ' + n : ''}`, qTodo: 'Added to to-dos', qTodoDue: (d) => `Added to to-dos, due ${d}`,
       quiet: 'Tucked away until they have something in them: ', quietTail: '.'
     }
   });
@@ -53,8 +61,9 @@
   /* ---------------- focus timer ---------------- */
   const isKey = (k) => typeof k === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(k);
   // course: the 学习清单 course that finished sessions count toward ('' for none)
-  const F = LO.createStore('focus', 'planner:focus:v1', () => ({ v: 1, work: 25, brk: 5, days: {}, course: '' }), (s) => {
-    const out = { v: 1, work: [15, 25, 45, 50].includes(s.work) ? s.work : 25, brk: [5, 10, 15].includes(s.brk) ? s.brk : 5, days: {}, course: typeof s.course === 'string' ? s.course : '' };
+  // todo: the to-do finished sessions add their minutes to ('' for none)
+  const F = LO.createStore('focus', 'planner:focus:v1', () => ({ v: 1, work: 25, brk: 5, days: {}, course: '', todo: '' }), (s) => {
+    const out = { v: 1, work: [15, 25, 45, 50].includes(s.work) ? s.work : 25, brk: [5, 10, 15].includes(s.brk) ? s.brk : 5, days: {}, course: typeof s.course === 'string' ? s.course : '', todo: typeof s.todo === 'string' ? s.todo : '' };
     Object.entries(s.days || {}).forEach(([k, v]) => { if (isKey(k) && v && +v.n > 0) out.days[k] = { n: +v.n, min: +v.min || 0 }; });
     return out;
   });
@@ -134,8 +143,10 @@
       F.s.days[k] = { n: ((F.s.days[k] || {}).n || 0) + 1, min: ((F.s.days[k] || {}).min || 0) + mins };
       F.save(); // marks the change so the session also syncs to other devices
       const course = focusCourse() ? LO.learn.addFocus(focusCourse(), mins) : null;
+      const todo = focusTodo() ? LO.tasks.addSpent(focusTodo(), mins) : null;
       resetTimer('brk');
-      LO.toast(course ? t('workDoneFor')(course.title) : t('workDone'), [{ label: t('startBreak'), run: startTimer }], 10000);
+      const names = [course && course.title, todo && todo.title].filter(Boolean);
+      LO.toast(names.length ? t('workDoneFor')(names.join(LO.lang() === 'zh' ? '」和「' : '" and "')) : t('workDone'), [{ label: t('startBreak'), run: startTimer }], 10000);
       if (LO.route() === 'today' || LO.route() === 'wishes') LO.refresh();
     } else {
       resetTimer('work');
@@ -158,6 +169,16 @@
       + `${list.map((c) => `<option value="${esc(c.id)}"${c.id === cur ? ' selected' : ''}>${esc(c.title)}</option>`).join('')}</select></label>`;
   }
 
+  // The chosen to-do, while it's still open; today's focus items come first in the list.
+  const focusTodo = () => (LO.tasks.openTodos().some((x) => x.id === F.s.todo) ? F.s.todo : '');
+  function todoPick() {
+    const list = LO.tasks.sortTodos(LO.tasks.openTodos()).slice(0, 30);
+    if (!list.length) return '';
+    const cur = focusTodo();
+    return `<label class="ft-course"><span>${esc(t('focusTodo'))}</span><select data-ftodo><option value="">${esc(t('noTodo'))}</option>`
+      + `${list.map((x) => `<option value="${esc(x.id)}"${x.id === cur ? ' selected' : ''}>${esc(x.title)}</option>`).join('')}</select></label>`;
+  }
+
   // Folded by default: one row with the clock and start/pause. "More" shows the dial and settings.
   const timerOpen = () => !!LO.settings().timerOpen;
   function timerCard() {
@@ -170,7 +191,7 @@
     if (!open) {
       return `${head}<div class="focus compact" id="focusBox" data-mode="${timer.mode}" data-running="${running}">`
         + `<span class="ft-clock">${fmtClock(remainNow())}</span><span class="ft-mode">${esc(timer.mode === 'work' ? t('work') : t('brk'))}</span>${main}`
-        + coursePick() + `<p class="hint">${esc(t('sessions')(today.n, today.min))}</p></div>`;
+        + coursePick() + todoPick() + `<p class="hint">${esc(t('sessions')(today.n, today.min))}</p></div>`;
     }
     return `${head}<div class="focus" id="focusBox" data-mode="${timer.mode}" data-running="${running}">`
       + `<div class="seg sm"><button type="button" data-fmode="work" aria-selected="${timer.mode === 'work'}">${esc(t('work'))}</button><button type="button" data-fmode="brk" aria-selected="${timer.mode === 'brk'}">${esc(t('brk'))}</button></div>`
@@ -180,7 +201,7 @@
       + `<div class="ft-len"><span>${esc(t('length'))}</span>${timer.mode === 'work'
         ? [15, 25, 45, 50].map((m) => `<button type="button" class="btn sm${F.s.work === m ? ' on' : ''}" data-flen="${m}">${m}</button>`).join('')
         : [5, 10, 15].map((m) => `<button type="button" class="btn sm${F.s.brk === m ? ' on' : ''}" data-flen="${m}">${m}</button>`).join('')}</div>`
-      + coursePick() + `<p class="hint">${esc(t('sessions')(today.n, today.min))}</p></div>`;
+      + coursePick() + todoPick() + `<p class="hint">${esc(t('sessions')(today.n, today.min))}</p></div>`;
   }
 
   LO.focus = {
@@ -321,6 +342,26 @@
       + `<ul class="wish-mini">${list.map(({ w, p }) => `<li class="${LO.wishes.catClass(w.cat)}"><div class="wm-top"><b>${esc(w.title)}</b><span>${p.ready ? esc(LO.t('wishes.ready')) : esc(p.label)}</span></div><div class="progress sm"><span style="width:${p.pct * 100}%"></span></div></li>`).join('')}</ul></section>`;
   }
 
+  // One line for anything: LO.quickLog says whether it's water, a workout, mood,
+  // sleep or spending; otherwise it becomes a to-do (with a due date if it names one).
+  function quickCard() {
+    return `<form class="quick-add today-quick" data-quick><input maxlength="80" autocomplete="off" enterkeyhint="done" placeholder="${esc(t('quickPh'))}" aria-label="${esc(t('quick'))}"><button type="submit" class="icon-btn" aria-label="${esc(tc('add'))}">${LO.icon.plus}</button></form>`;
+  }
+  function quickAdd(text) {
+    const r = LO.quickLog(text);
+    const H = LO.health;
+    if (r && r.kind === 'water') H.quickRecord(r, t('qWater')(r.n));
+    else if (r && r.kind === 'workout') H.quickRecord(r, t('qWorkout')(LO.t('health.wt')[r.type], r.min));
+    else if (r && r.kind === 'mood') H.quickRecord(r, t('qMood'));
+    else if (r && r.kind === 'sleep') H.quickRecord(r, t('qSleep')(r.bed, r.wake));
+    else if (r && r.kind === 'spend' && LO.money) LO.money.quickAdd(r.amount, r.note, t('qSpend')(LO.money.fmt(r.amount), r.note));
+    else {
+      const p = LO.quickDate(text);
+      LO.tasks.addTodo({ title: p.title, due: p.due || '' });
+      LO.toast(p.due ? t('qTodoDue')(LO.dueInfo(p.due).text) : t('qTodo'), [{ label: tc('undo'), run: LO.undo }]);
+    }
+  }
+
   function timerSection() {
     return `<section class="card o7" id="focusSlot">${timerCard()}</section>`;
   }
@@ -328,12 +369,16 @@
   // Cards the reader can turn off under ⋯ → Customize pages. A card also goes
   // away when the page it comes from is hidden.
   const CARDS = [
+    { id: 'quick', label: 'quick', html: quickCard },
+    { id: 'evening', label: 'evening', html: () => (LO.evening ? LO.evening.cardHTML() : '') },
     { id: 'schedule', label: 'schedule', page: 'schedule', html: scheduleCard },
     { id: 'timer', label: 'timer', html: timerSection },
+    { id: 'dates', label: 'dates', page: 'dates', html: () => (LO.dates ? LO.dates.todayHTML() : '') },
     { id: 'focus', label: 'focusTitle', html: focusCard },
     { id: 'dailies', label: 'dailies', html: dailiesCard },
     { id: 'upcoming', label: 'upcoming', page: 'tasks', html: upcomingCard },
     { id: 'health', label: 'health', page: 'rest', html: healthCard },
+    { id: 'outfit', label: 'outfit', page: 'wardrobe', html: () => (LO.wardrobe && LO.wardrobe.todayHTML ? LO.wardrobe.todayHTML() : '') },
     { id: 'habits', label: 'habits', page: 'tasks', html: habitsCard },
     { id: 'month', label: 'month', page: 'plan', html: monthCard },
     { id: 'news', label: 'news', page: 'news', html: newsCard },
@@ -356,14 +401,18 @@
       ? `${t('streakOn')(st.cur)}${st.cur >= 3 && st.cur >= st.best ? t('streakBest') : ''}`
       : t('streakKeep')(st.cur);
     quiet = [];
-    let h = `<div class="view-head"><div><h1>${esc(LO.dateLine(now))}</h1><p class="sub">${esc(greet)}</p>`
+    const termLine = LO.term && LO.pageShown('term') ? LO.term.todayLine() : '';
+    let h = `<div class="view-head"><div><h1>${esc(LO.dateLine(now))}</h1><p class="sub">${esc(greet)}${termLine ? ` · <a class="link" href="#/growth/term">${esc(termLine)}</a>` : ''}</p>`
       + (streak ? `<${LO.pageShown('records') ? 'a href="#/growth/records"' : 'span'} class="streak-pill${st.today ? ' is-on' : ''}" title="${esc(t('streakTip'))}">${esc(streak)}</${LO.pageShown('records') ? 'a' : 'span'}>` : '') + '</div></div>';
+    if (LO.welcome) h += LO.welcome.html();
     if (LO.review) h += LO.review.nudgeHTML();
     h += LO.backup.nudgeHTML();
+    h += card('quick');
+    h += card('evening');
     h += '<div class="today-grid">';
     h += `<div class="tcol-a">${tripCard()}${card('schedule')}${card('timer')}</div>`;
-    h += `<div class="tcol-b">${card('focus')}${card('dailies')}${card('upcoming')}</div>`;
-    h += `<div class="tcol-c">${card('health')}${card('habits')}${card('month')}${card('news')}${card('wishes')}</div>`;
+    h += `<div class="tcol-b">${card('dates')}${card('focus')}${card('dailies')}${card('upcoming')}</div>`;
+    h += `<div class="tcol-c">${card('health')}${card('outfit')}${card('habits')}${card('month')}${card('news')}${card('wishes')}</div>`;
     h += '</div>';
     if (quiet.length) {
       const sep = LO.lang() === 'zh' ? '、' : ', ';
@@ -415,6 +464,16 @@
     }
   });
   view.addEventListener('submit', (e) => {
+    const qf = e.target.closest('[data-quick]');
+    if (qf) {
+      e.preventDefault();
+      const text = $('input', qf).value.trim();
+      if (!text) return;
+      quickAdd(text);
+      const i = $('[data-quick] input', view);
+      if (i) i.focus();
+      return;
+    }
     const f = e.target.closest('[data-focusadd]');
     if (!f) return;
     e.preventDefault();
@@ -426,6 +485,7 @@
   });
   view.addEventListener('change', (e) => {
     if (e.target.matches('[data-fcourse]')) { F.s.course = e.target.value; F.save(); return; }
+    if (e.target.matches('[data-ftodo]')) { F.s.todo = e.target.value; F.save(); return; }
     if (!e.target.matches('[data-pick]') || !e.target.value) return;
     const id = e.target.value;
     LO.mutate(LO.tasks.store, (s) => { const x = s.todos.find((y) => y.id === id); if (x) x.focus = LO.todayKey(); });

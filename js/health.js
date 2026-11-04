@@ -190,6 +190,16 @@
       if (n) s.water.days[k] = n; else delete s.water.days[k];
     });
   }
+  // a line read by LO.quickLog on Today: water, mood, sleep or a workout, for today
+  function quickRecord(r, msg) {
+    LO.mutate(H, (s) => {
+      const k = LO.todayKey();
+      if (r.kind === 'water') s.water.days[k] = LO.clamp((s.water.days[k] || 0) + r.n, 0, 40);
+      else if (r.kind === 'mood') s.mood.days[k] = { v: r.v, note: (s.mood.days[k] || {}).note || '' };
+      else if (r.kind === 'sleep') s.sleep.days[k] = { bed: r.bed, wake: r.wake, q: 2 };
+      else if (r.kind === 'workout') s.workouts.push({ id: LO.uid(), date: k, types: [WTYPES.includes(r.type) ? r.type : 'other'], min: r.min, level: 2, note: '', routine: '', items: [] });
+    }, msg);
+  }
   function setMood(v) {
     LO.mutate(H, (s) => {
       const k = LO.todayKey();
@@ -451,6 +461,7 @@
     face,
     addWater,
     setMood,
+    quickRecord,
     sleepHours: (k) => sleepHours(H.s.sleep.days[k]),
     weekMinutes,
     waterToday: () => H.s.water.days[LO.todayKey()] || 0,

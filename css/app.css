@@ -396,7 +396,7 @@ button.stat:hover { border-color: var(--line-2); }
   .today-grid { display: flex; flex-direction: column; align-items: stretch; }
   .tcol-a, .tcol-b, .tcol-c { display: contents; }
   .o1 { order: 1; } .o2 { order: 2; } .o3 { order: 3; } .o4 { order: 4; }
-  .o5 { order: 5; } .o6 { order: 6; } .o7 { order: 7; } .o8 { order: 8; } .o9 { order: 9; } .o10 { order: 10; }
+  .o5 { order: 5; } .o6 { order: 6; } .o7 { order: 7; } .o8 { order: 8; } .o9 { order: 9; } .o10 { order: 10; } .o11 { order: 4; }
 }
 .timeline { list-style: none; margin: 0; padding: 0; }
 .ev-line { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
@@ -925,3 +925,113 @@ button.stat:hover { border-color: var(--line-2); }
 .rv-past { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
 .rv-past-item { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; text-align: left; font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
 .rv-past-item span { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- to-do time on the schedule ---------- */
+.todo-block { color: var(--ink); font-weight: 500; }
+
+/* ---------- evening wrap-up ---------- */
+.evening { display: grid; gap: 12px; margin-bottom: 16px; }
+.evening-sum { margin: 0; font-size: 15px; }
+.evening-left { display: grid; gap: 6px; font-size: 13.5px; color: var(--muted); }
+.evening-left ul { margin: 0; padding-left: 18px; color: var(--ink); }
+.evening-left .btn { justify-self: start; }
+.evening .fld { margin: 0; }
+.evening-actions { display: flex; justify-content: flex-end; }
+.evening-done { margin: 0 0 14px; }
+.rv-nights { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 13.5px; }
+.rv-nights small { display: inline-block; min-width: 34px; color: var(--muted); }
+
+/* ---------- semester ---------- */
+.term-up { margin-bottom: 16px; }
+.term-up-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.term-up-list li { display: grid; grid-template-columns: 78px 1fr; column-gap: 10px; cursor: pointer; }
+.term-up-list li .hint { grid-column: 2; font-size: 12.5px; }
+.term-up-list li.is-exam b { color: var(--danger); }
+.term-when { grid-row: span 2; font-size: 13px; font-weight: 600; color: var(--muted); }
+.term-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 10px; }
+.term-course { display: flex; flex-direction: column; gap: 8px; }
+.term-course h3 { margin: 0; font-size: 16px; cursor: pointer; }
+.term-grade { margin: 0; font-size: 15px; }
+.term-grade b { font-size: 24px; font-variant-numeric: tabular-nums; }
+.term-letter { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--seg); font-weight: 600; }
+.term-items { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.term-items li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 8px; margin: 0 -8px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+.term-items li:hover { background: var(--hover); }
+.term-items small { color: var(--muted); }
+.term-items b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.term-course .btn.ghost { align-self: flex-start; }
+.empty-card { display: grid; gap: 10px; justify-items: start; padding: 24px; }
+.empty-card h2 { margin: 0; font-size: 18px; }
+.empty-card p { margin: 0; max-width: 560px; }
+
+/* ---------- search ---------- */
+.search-dlg { width: min(560px, calc(100vw - 24px)); margin-top: 10vh; }
+.search-box { padding: 14px; display: grid; gap: 8px; }
+.search-box .input { font-size: 16px; height: 42px; }
+.search-list { margin: 0; padding: 0; list-style: none; max-height: 55vh; overflow-y: auto; }
+.search-list li { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: baseline; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.search-list li[aria-selected="true"], .search-list li:hover { background: var(--hover); }
+.search-list small { grid-column: 2; color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-kind { grid-row: span 2; min-width: 64px; font-size: 12px; color: var(--muted); }
+.search-none { color: var(--muted); cursor: default; }
+.search-hint { margin: 0; font-size: 12px; }
+@media (max-width: 640px) { .search-hint { display: none; } }
+
+/* ---------- quick add on Today ---------- */
+.today-quick { margin: 0 0 16px; }
+.today-quick input { height: 44px; font-size: 15px; }
+
+/* ---------- summaries and patterns ---------- */
+.review-modes { margin-right: 6px; }
+.insight-title { margin: 0 0 12px; font-size: 18px; }
+.insight-foot { margin-top: 14px; }
+.insight-list { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; }
+.insight-list small { color: var(--muted); }
+@media (max-width: 640px) { .review-modes { order: -1; flex-basis: 100%; } .year-nav { flex-wrap: wrap; } }
+
+/* ---------- everyday spending ---------- */
+.money-month { min-width: 120px; font-size: 15px; }
+.money-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
+@media (max-width: 760px) { .money-cols { grid-template-columns: 1fr; } }
+.money-add form { display: grid; gap: 10px; }
+.money-add h2, .money-cols h2 { margin: 0 0 10px; font-size: 16px; }
+.money-amt { max-width: 120px; font-size: 17px; font-variant-numeric: tabular-nums; }
+.money-add .err { margin: 0; min-height: 0; }
+.money-days { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.money-day h3 { margin: 0; font-size: 14.5px; }
+.money-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.money-list li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 8px; margin: 0 -8px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+.money-list li:hover { background: var(--hover); }
+.money-list small { margin-left: 6px; color: var(--muted); font-size: 12px; }
+.money-list b { font-variant-numeric: tabular-nums; }
+.money-cols .hours .bar span { background: var(--accent); }
+
+/* ---------- weather and outfit on Today ---------- */
+.outfit-today { display: flex; flex-direction: column; gap: 8px; }
+.outfit-wx { margin: 0; font-size: 15px; font-weight: 500; }
+.outfit-today .hint { margin: 0; }
+.outfit-row { display: flex; gap: 8px; overflow-x: auto; }
+.outfit-piece { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 64px; flex: 0 0 auto; }
+.outfit-piece .of-thumb { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; }
+.outfit-piece .of-thumb.ph { display: grid; place-items: center; background: var(--seg); font-size: 12px; color: var(--muted); }
+.outfit-piece small { font-size: 11.5px; color: var(--muted); max-width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- special days ---------- */
+.dates-list { margin: 0; padding: 6px; list-style: none; display: grid; gap: 2px; }
+.dates-list.compact { padding: 0; }
+.dates-list li { display: flex; align-items: center; gap: 8px; }
+.dates-main { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.dates-main:hover { background: var(--hover); }
+.dates-main small { flex-basis: 100%; color: var(--muted); font-size: 12.5px; }
+.dates-list li.is-today b { color: var(--danger); }
+
+/* ---------- first-run guide ---------- */
+.welcome { margin-bottom: 16px; display: grid; gap: 8px; }
+.welcome > .hint { margin: 0; }
+.wel-steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.wel-steps li { display: flex; gap: 12px; align-items: flex-start; }
+.wel-steps li > div { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.wel-steps .hint { margin: 0; }
+.wel-n { flex: 0 0 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--seg); font-size: 13px; font-weight: 600; }
+.wel-steps li.is-done .wel-n { background: var(--accent); color: var(--accent-ink); }
+.wel-n svg { width: 14px; height: 14px; }

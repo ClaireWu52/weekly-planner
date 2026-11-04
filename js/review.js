@@ -109,13 +109,27 @@
 
   const view = $('#view-review');
 
+  // week: the weekly review; month / year: summaries from insights.js
+  let mode = 'week';
+  const moff = { month: 0, year: 0 };
+  const modeSeg = () => (LO.insights ? `<div class="seg sm review-modes" role="tablist">${['week', 'month', 'year'].map((m) => `<button type="button" role="tab" data-rmode="${m}" aria-selected="${m === mode}">${esc(LO.t('insights.' + m))}</button>`).join('')}</div>` : '');
+
+  function renderSummary() {
+    const it = LO.ns('insights');
+    view.innerHTML = `<div class="view-head"><div><h1>${esc(t('title'))}</h1></div>`
+      + `<div class="year-nav">${modeSeg()}<button type="button" class="icon-btn" data-moff="-1" aria-label="${esc(it('prev'))}">‹</button>`
+      + `<button type="button" class="icon-btn" data-moff="1" aria-label="${esc(it('next'))}"${moff[mode] >= 0 ? ' disabled' : ''}>›</button></div></div>`
+      + LO.insights.summaryHTML(mode, moff[mode]) + `<div class="rv-grid insight-foot">${LO.insights.patternsHTML()}</div>`;
+  }
+
   function render() {
+    if (mode !== 'week' && LO.insights) { renderSummary(); return; }
     const { mon, a } = range(offset);
     const s = summary(offset);
     const w = R.s.weeks[a] || blank();
     const label = offset === 0 ? t('thisWeek') : offset === -1 ? t('lastWeek') : '';
     let h = `<div class="view-head"><div><h1>${esc(t('title'))}</h1><p class="sub">${esc(rangeLabel(mon))}${label ? `，${esc(label)}` : ''}</p></div>`
-      + `<div class="year-nav"><button type="button" class="icon-btn" data-roff="-1" aria-label="${esc(t('prev'))}">‹</button>`
+      + `<div class="year-nav">${modeSeg()}<button type="button" class="icon-btn" data-roff="-1" aria-label="${esc(t('prev'))}">‹</button>`
       + `<button type="button" class="icon-btn" data-roff="1" aria-label="${esc(t('next'))}"${offset >= 0 ? ' disabled' : ''}>›</button></div></div>`;
 
     const card = (title, inner) => `<section class="card rv-card"><h3 class="rv-h">${esc(title)}</h3>${inner}</section>`;
@@ -136,6 +150,11 @@
     h += card(t('focus'), `<p class="rv-big">${esc(t('focusLine')(s.focusN || 0, s.focusMin || 0))}</p>`
       + `<p class="hint">${esc(t('books'))}：${esc(s.books.length ? s.books.join('、') : t('none'))}</p>`
       + `<p class="hint">${esc(t('records'))}：${esc(s.records.length ? s.records.join('、') : t('none'))}</p>`);
+    if (LO.insights) h += LO.insights.patternsHTML();
+    const nights = LO.evening ? LO.evening.notes(a, LO.keyOf(LO.addDays(mon, 6))) : [];
+    if (nights.length) {
+      h += card(LO.t('evening.note'), `<ul class="rv-nights">${nights.map((n) => `<li><small>${esc(LO.t('common.days')[LO.wd(LO.parseKey(n.date))])}</small>${esc(n.note)}</li>`).join('')}</ul>`);
+    }
     h += '</div>';
 
     h += `<section class="card rv-reflect"><header class="card-head"><h2>${esc(t('reflect'))}</h2><span class="hint">${esc(t('saved'))}</span></header>`
@@ -165,6 +184,10 @@
   }
 
   view.addEventListener('click', (e) => {
+    const md = e.target.closest('[data-rmode]');
+    if (md) { mode = md.dataset.rmode; render(); return; }
+    const mo = e.target.closest('[data-moff]');
+    if (mo) { moff[mode] = Math.min(0, moff[mode] + +mo.dataset.moff); render(); return; }
     const o = e.target.closest('[data-roff]');
     if (o) { offset = Math.min(0, offset + +o.dataset.roff); render(); return; }
     const pw = e.target.closest('[data-rweek]');

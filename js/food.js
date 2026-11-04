@@ -11,7 +11,7 @@
     zh: {
       title: '今天吃什么', sub: '把常吃的放进转盘，选择困难就交给它。',
       spin: '转一下', result: (x) => `就吃${x}吧`, place: (p) => `去 ${p}`, again: '再转一次', eat: '就吃这个', eaten: '记下来了，吃好',
-      options: '转盘里的选项', addPh: '加一个选项，比如：越南粉', avoid: '避开最近两次吃过的',
+      options: '转盘里的选项', addPh: '加一个选项，比如：越南粉', avoid: '避开最近两次吃过的', recentHint: '最近吃过的会少转到一些。',
       history: '最近吃的', noHistory: '还没有记录。', tooFew: '至少要有两个开着的选项才能转。',
       edit: '编辑选项', name: '名称', places: '常去的店（每行一个，可不填）', placesPh: 'Sushi O\nPanera Bread', on: '放进转盘',
       errName: '请填写名称。', placesN: (n) => `${n} 家店`,
@@ -20,7 +20,7 @@
     en: {
       title: 'What to eat', sub: 'Put your usual options on the wheel and let it decide.',
       spin: 'Spin', result: (x) => `${x} it is`, place: (p) => `Go to ${p}`, again: 'Spin again', eat: "Let's eat this", eaten: 'Saved. Enjoy.',
-      options: 'Options on the wheel', addPh: 'Add an option, e.g. Pho', avoid: 'Skip the last two picks',
+      options: 'Options on the wheel', addPh: 'Add an option, e.g. Pho', avoid: 'Skip the last two picks', recentHint: 'Recent picks come up less often.',
       history: 'Recently eaten', noHistory: 'Nothing yet.', tooFew: 'You need at least two options switched on.',
       edit: 'Edit option', name: 'Name', places: 'Favourite places (one per line, optional)', placesPh: 'Sushi O\nPanera Bread', on: 'On the wheel',
       errName: 'Add a name.', placesN: (n) => `${n} places`,
@@ -80,7 +80,11 @@
     const recent = F.s.avoid ? F.s.history.slice(-2).map((h) => h.option) : [];
     let pool = opts.map((o, i) => i).filter((i) => !recent.includes(opts[i].name));
     if (!pool.length) pool = opts.map((o, i) => i);
-    const win = pool[Math.floor(Math.random() * pool.length)];
+    // what you had in the last few picks comes up less often: the latest a fifth as often, the two before half as often
+    const last = F.s.history.slice(-3).map((h) => h.option).reverse();
+    const weight = (i) => { const at = last.indexOf(opts[i].name); return at === 0 ? 0.2 : at > 0 ? 0.5 : 1; };
+    let roll = Math.random() * pool.reduce((a, i) => a + weight(i), 0);
+    const win = pool.find((i) => (roll -= weight(i)) < 0) ?? pool[pool.length - 1];
     const seg = 360 / opts.length;
     const center = win * seg + seg / 2;
     const jitter = (Math.random() - 0.5) * seg * 0.6;
@@ -136,7 +140,7 @@
       + `<ul class="food-opts">${F.s.options.map((o) => `<li data-opt="${esc(o.id)}"><label class="check"><input type="checkbox" data-optoggle${o.on ? ' checked' : ''}><span>${esc(o.name)}</span></label>`
         + `${o.places.length ? `<span class="hint">${esc(t('placesN')(o.places.length))}</span>` : ''}<button type="button" class="icon-btn sm ghost" data-optedit aria-label="${esc(t('edit'))}">✎</button></li>`).join('')}</ul>`
       + `<form class="quick-add" data-optadd><input maxlength="30" autocomplete="off" placeholder="${esc(t('addPh'))}" aria-label="${esc(t('addPh'))}"><button type="submit" class="icon-btn" aria-label="${esc(tc('add'))}">${LO.icon.plus}</button></form>`
-      + `<label class="check avoid"><input type="checkbox" data-avoid${F.s.avoid ? ' checked' : ''}>${esc(t('avoid'))}</label></section>`;
+      + `<label class="check avoid"><input type="checkbox" data-avoid${F.s.avoid ? ' checked' : ''}>${esc(t('avoid'))}</label><p class="hint">${esc(t('recentHint'))}</p></section>`;
     const hist = F.s.history.slice().reverse().slice(0, 8);
     h += `<section class="card"><header class="card-head"><h2>${esc(t('history'))}</h2></header>`
       + (hist.length ? `<ul class="log-list">${hist.map((x) => `<li><span class="log-date">${LO.shortDate(x.date)}</span><span class="log-main"><b>${esc(x.option)}</b>${x.place ? ` <span class="hint">${esc(x.place)}</span>` : ''}</span></li>`).join('')}</ul>`

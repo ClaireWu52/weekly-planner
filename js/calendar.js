@@ -1,6 +1,6 @@
 /*
  * Export to calendar: builds an .ics file with the weekly schedule (as
- * repeating events), one-off events, to-do deadlines and trip bookings, with reminders,
+ * repeating events), one-off events, to-do deadlines, trip bookings and birthdays, with reminders,
  * so the phone's own calendar can send notifications.
  * Also imports a calendar file (for example the class schedule from the school's
  * system or Google Calendar) into the schedule, after showing what it will add.
@@ -15,7 +15,7 @@
     zh: {
       title: '导出到日历', intro: '生成一个日历文件（.ics），导入手机或电脑自带的日历后，课程和截止日期就会按时提醒你。',
       what: '要导出的内容', classes: '每周固定的课表安排', once: '只在某一周的安排（今天以后的）', todos: '待办的截止日期',
-      trips: '旅行的行程、交通和住宿（航班提前 3 小时提醒，其他提前 1 小时）',
+      trips: '旅行的行程、交通和住宿（航班提前 3 小时提醒，其他提前 1 小时）', dates: '生日和纪念日（每年重复，前一天提醒）',
       until: '每周安排重复到', untilHint: '没有设结束日期的安排会重复到这一天，比如期末。',
       alarm: '课前提醒', alarms: { 0: '不提醒', 10: '提前 10 分钟', 15: '提前 15 分钟', 30: '提前 30 分钟', 60: '提前 1 小时' },
       todoAlarm: '截止日期会在前一天早上 9 点提醒。',
@@ -32,7 +32,7 @@
     en: {
       title: 'Export to calendar', intro: 'Creates a calendar file (.ics). Import it into your phone or computer calendar and you will get reminders for classes and deadlines.',
       what: 'What to include', classes: 'Weekly schedule', once: 'This-week-only events (from today on)', todos: 'To-do due dates',
-      trips: 'Trips, transport and stays (flights remind you 3 hours before, others 1 hour)',
+      trips: 'Trips, transport and stays (flights remind you 3 hours before, others 1 hour)', dates: 'Birthdays and special days (yearly, reminded the day before)',
       until: 'Repeat weekly events until', untilHint: 'Weekly events without an end date repeat until this day, e.g. the end of the semester.',
       alarm: 'Reminder before events', alarms: { 0: 'None', 10: '10 min before', 15: '15 min before', 30: '30 min before', 60: '1 hour before' },
       todoAlarm: 'Due dates remind you at 9am the day before.',
@@ -73,7 +73,7 @@
 
   function loadCfg() {
     const d = new Date();
-    const def = { classes: true, once: true, todos: true, trips: true, until: LO.keyOf(LO.addDays(d, 120)), alarm: 15 };
+    const def = { classes: true, once: true, todos: true, trips: true, dates: true, until: LO.keyOf(LO.addDays(d, 120)), alarm: 15 };
     const c = LO.readJSON(CFG_KEY) || {};
     return Object.assign(def, c);
   }
@@ -140,6 +140,14 @@
           ...alarm(x.title, x.time == null ? '-PT15H' : x.alarm), 'END:VEVENT']);
       });
     }
+    if (cfg.dates && LO.dates) {
+      LO.dates.calendarItems().forEach((x) => {
+        const d = LO.parseKey(x.start);
+        ev.push(['BEGIN:VEVENT', `UID:${x.uid}@my-planner`, `DTSTAMP:${dtstamp}`, `DTSTART;VALUE=DATE:${ymd(d)}`,
+          `DTEND;VALUE=DATE:${ymd(LO.addDays(d, 1))}`, 'RRULE:FREQ=YEARLY', `SUMMARY:${escText(x.title)}`, ...(x.desc ? [`DESCRIPTION:${escText(x.desc)}`] : []),
+          ...alarm(x.title, '-PT15H'), 'END:VEVENT']);
+      });
+    }
     const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//My Planner//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
       `X-WR-CALNAME:${escText(LO.t('app.brand'))}`, ...ev.flat(), 'END:VCALENDAR'];
     return { text: lines.map(fold).join('\r\n') + '\r\n', count: ev.length };
@@ -151,7 +159,7 @@
       title: t('title'),
       body: `<p class="hint">${esc(t('intro'))}</p>`
         + `<div class="fld"><span>${esc(t('what'))}</span>`
-        + ['classes', 'once', 'todos', 'trips'].map((k) => `<label class="check"><input type="checkbox" name="cal_${k}"${c[k] ? ' checked' : ''}>${esc(t(k))}</label>`).join('') + '</div>'
+        + ['classes', 'once', 'todos', 'trips', 'dates'].map((k) => `<label class="check"><input type="checkbox" name="cal_${k}"${c[k] ? ' checked' : ''}>${esc(t(k))}</label>`).join('') + '</div>'
         + `<div class="form-row"><label class="fld"><span>${esc(t('until'))}</span><input class="input" type="date" name="cal_until" value="${esc(c.until)}"></label>`
         + `<label class="fld"><span>${esc(t('alarm'))}</span><select name="cal_alarm">${[0, 10, 15, 30, 60].map((m) => `<option value="${m}"${+c.alarm === m ? ' selected' : ''}>${esc(t('alarms')[m])}</option>`).join('')}</select></label></div>`
         + `<p class="hint">${esc(t('untilHint'))} ${esc(t('todoAlarm'))}</p>`
@@ -161,7 +169,7 @@
       onSave(dlg) {
         const cfg = {
           classes: $('input[name="cal_classes"]', dlg).checked, once: $('input[name="cal_once"]', dlg).checked,
-          todos: $('input[name="cal_todos"]', dlg).checked, trips: $('input[name="cal_trips"]', dlg).checked, until: $('input[name="cal_until"]', dlg).value || loadCfg().until,
+          todos: $('input[name="cal_todos"]', dlg).checked, trips: $('input[name="cal_trips"]', dlg).checked, dates: $('input[name="cal_dates"]', dlg).checked, until: $('input[name="cal_until"]', dlg).value || loadCfg().until,
           alarm: +$('select[name="cal_alarm"]', dlg).value
         };
         try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); } catch (_) { /* ignore */ }

@@ -168,6 +168,7 @@
     if (isDateKey(e.from)) out.from = e.from;
     if (isDateKey(e.until)) out.until = e.until;
     if (typeof e.group === 'string' && e.group) out.group = e.group;
+    if (typeof e.todo === 'string' && e.todo) out.todo = e.todo;
     return out;
   };
 
@@ -283,6 +284,7 @@
     if (e.note) o.note = e.note;
     if (e.from) o.from = e.from;
     if (e.until) o.until = e.until;
+    if (e.todo) o.todo = e.todo;
     return o;
   };
 
@@ -332,7 +334,8 @@
     if (c.interactive) inner += '<span class="grip" aria-hidden="true"></span>';
     const label = `${e.title}, ${L().days[e.day]} ${fmt(e.start)}–${fmtEnd(e.end)}${e.place ? ', ' + e.place : ''}${e.note ? ', ' + e.note : ''}`;
     const attrs = c.interactive ? ` tabindex="0" role="button" aria-label="${esc(label)}" title="${esc(label)}"` : '';
-    const cls = `ev cat-${e.cat}${e.rec ? '' : ' once'}${tight ? ' tight' : ''}${oneLine ? ' one' : ''}`;
+    const td = e.todo && LO.tasks ? LO.tasks.todoById(e.todo) : null;
+    const cls = `ev cat-${e.cat}${e.rec ? '' : ' once'}${td ? ' is-todo' : ''}${td && td.done ? ' is-done' : ''}${tight ? ' tight' : ''}${oneLine ? ' one' : ''}`;
     return `<div class="${cls}" data-id="${esc(e.id)}" data-rec="${e.rec ? 1 : 0}"${attrs} style="top:calc(${top}% + 1px);height:calc(${hgt}% - 2px);left:calc(${left}% + 2px);width:calc(${w}% - 4px)">${inner}</div>`;
   }
 
@@ -690,7 +693,24 @@
     },
     catLabel: (c) => t('cats.' + c),
     raw: () => state,
-    raw: () => state,
+    // A to-do's time on the schedule: a one-off event that carries the to-do's id.
+    todoBlock(id) {
+      for (const [k, w] of Object.entries(state.weeks)) {
+        const e = w.added.find((x) => x.todo === id);
+        if (e) return { date: keyOf(addDays(LO.parseKey(k), e.day)), start: e.start, end: e.end };
+      }
+      return null;
+    },
+    // b: { date, start, end, title, cat } or null to take it off the schedule
+    setTodoBlock(id, b) {
+      Object.values(state.weeks).forEach((w) => { w.added = w.added.filter((x) => x.todo !== id); });
+      if (b) {
+        const d = LO.parseKey(b.date);
+        const cat = { club: 'meeting' }[b.cat] || (CATS.includes(b.cat) ? b.cat : 'study');
+        week(keyOf(mondayOf(d)), true).added.push(cleanEvent({ id: uid(), title: b.title, cat, day: LO.wd(d), start: b.start, end: Math.min(b.end, 1440), place: '', todo: id }));
+      }
+      persist();
+    },
     weekEventsOf: (date) => weekEvents(keyOf(mondayOf(date))),
     // Adds what LO.icsParse read from a calendar file. Weekly entries become repeating
     // events (one group per class), their skipped days become "skip this week", and

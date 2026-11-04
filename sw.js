@@ -22,6 +22,7 @@ const SHELL = [
   'js/planner-print.js',
   'js/planner-edit.js',
   'js/quick-date.js',
+  'js/quick-log.js',
   'js/task-calc.js',
   'js/tasks.js',
   'js/health.js',
@@ -33,6 +34,10 @@ const SHELL = [
   'js/news-data.js',
   'js/news.js',
   'js/food.js',
+  'js/money.js',
+  'js/dates-calc.js',
+  'js/dates.js',
+  'js/home-weather.js',
   'js/wardrobe.js',
   'js/travel-calc.js',
   'js/travel.js',
@@ -41,13 +46,21 @@ const SHELL = [
   'js/travel-pack.js',
   'js/travel-weather.js',
   'js/travel-share.js',
+  'js/insight-calc.js',
+  'js/insights.js',
   'js/review.js',
+  'js/term-calc.js',
+  'js/term.js',
   'js/ics-parse.js',
   'js/calendar.js',
   'js/sync-merge.js',
   'js/sync.js',
   'js/sync-photos.js',
-  'js/today.js'
+  'js/today.js',
+  'js/evening.js',
+  'js/search.js',
+  'js/welcome.js',
+  'js/share.js'
 ];
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 

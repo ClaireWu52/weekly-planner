@@ -24,6 +24,8 @@
   function openEdit(id, rec) {
     const ev = rec ? K.state.recurring.find((e) => e.id === id) : week(curKey()).added.find((e) => e.id === id);
     if (!ev) return;
+    // a to-do's block opens the to-do, where its time is set
+    if (ev.todo && LO.tasks && LO.tasks.todoById(ev.todo)) { LO.tasks.openEditor('todo', ev.todo); return; }
     dctx = { mode: 'edit', rec, id };
     const days = rec ? groupOf(id).map((e) => e.day).sort() : [ev.day];
     fillDialog({ title: ev.title, cat: ev.cat, days, start: ev.start, end: ev.end, place: ev.place, note: ev.note || '', from: ev.from || '', until: ev.until || '', repeat: rec ? 'weekly' : 'once' });

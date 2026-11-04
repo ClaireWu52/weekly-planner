@@ -8,6 +8,7 @@
   const { $, $$, esc, uid } = LO;
   const TCATS = ['study', 'work', 'club', 'health', 'life', 'other'];
   const AUTOS = ['', 'workout', 'water', 'sleep', 'focus', 'mood'];
+  const ESTS = [0, 15, 30, 45, 60, 90, 120, 180];
 
   LO.strings('tasks', {
     zh: {
@@ -42,6 +43,10 @@
       autoLabel: '自动打卡', autoHint: '满足条件时会自动勾上，不用手动点。', autoDone: '这一项会根据你的记录自动打卡',
       autos: { '': '不自动', workout: '记了运动', water: '喝水达标', sleep: '记了睡眠', focus: '专注过一次', mood: '记了心情' }, autoTag: (x) => `自动：${x}`,
       errTitle: '请填写名称。', errDays: '至少选一天。', errDir: '至少选一个方向。',
+      est: '预计时长', estNone: '不估', estOpt: (m) => (m < 60 ? `${m} 分钟` : `${m / 60} 小时`),
+      block: '排进课表', blockHint: '选好日期和开始时间，课表上会按预计时长（没填就 1 小时）留出这段时间。在课表上点它会回到这个待办。',
+      spentTag: (m, e) => (e ? `已专注 ${m}/${e} 分钟` : `已专注 ${m} 分钟`),
+      blockClear: '不排', blockTag: (d, tm) => `${d} ${tm} 做`, errBlock: '排进课表需要日期和开始时间都填上。',
       seedHabits: [['吃蔬菜水果', 'health', 1, 0], ['走楼梯或多走路', 'health', 1, 0], ['喝含糖饮料', 'health', 0, 1], ['专注学习 25 分钟', 'study', 1, 0]],
       seedDailies: [['吃早餐', 'health', [1, 1, 1, 1, 1, 1, 1]], ['拉伸 10 分钟', 'health', [1, 1, 1, 1, 1, 1, 1]],
         ['复习当天的课堂笔记', 'study', [1, 1, 1, 1, 1, 0, 0]], ['睡前半小时放下手机', 'health', [1, 1, 1, 1, 1, 1, 1]]]
@@ -78,6 +83,10 @@
       autoLabel: 'Auto check-in', autoHint: 'Checks itself off when the condition is met.', autoDone: 'This one checks itself off from your logs',
       autos: { '': 'Manual', workout: 'Logged a workout', water: 'Hit water goal', sleep: 'Logged sleep', focus: 'Did a focus session', mood: 'Logged mood' }, autoTag: (x) => `Auto: ${x}`,
       errTitle: 'Add a name.', errDays: 'Pick at least one day.', errDir: 'Pick at least one direction.',
+      est: 'Time needed', estNone: 'Not sure', estOpt: (m) => (m < 60 ? `${m} min` : `${m / 60} h`),
+      block: 'Put on the schedule', blockHint: 'Pick a day and a start time and the schedule keeps that time free for it (as long as the time needed, or 1 hour). Tapping it on the schedule brings you back here.',
+      spentTag: (m, e) => (e ? `Focused ${m}/${e} min` : `Focused ${m} min`),
+      blockClear: 'Not now', blockTag: (d, tm) => `Doing ${d} ${tm}`, errBlock: 'To put it on the schedule, fill in both the day and the start time.',
       seedHabits: [['Eat fruit or vegetables', 'health', 1, 0], ['Take the stairs or walk more', 'health', 1, 0], ['Sugary drinks', 'health', 0, 1], ['Focused study, 25 min', 'study', 1, 0]],
       seedDailies: [['Eat breakfast', 'health', [1, 1, 1, 1, 1, 1, 1]], ['Stretch for 10 minutes', 'health', [1, 1, 1, 1, 1, 1, 1]],
         ["Review today's class notes", 'study', [1, 1, 1, 1, 1, 0, 0]], ['Phone away 30 min before bed', 'health', [1, 1, 1, 1, 1, 1, 1]]]
@@ -122,7 +131,7 @@
       if (!x || typeof x.title !== 'string') return;
       out.todos.push({
         id: String(x.id || uid()), title: x.title, notes: str(x.notes), cat: cat(x.cat, 'other'),
-        due: isKey(x.due) ? x.due : '', pri: [0, 1, 2].includes(x.pri) ? x.pri : 1,
+        due: isKey(x.due) ? x.due : '', pri: [0, 1, 2].includes(x.pri) ? x.pri : 1, est: ESTS.includes(x.est) ? x.est : 0, spent: Math.max(0, Math.round(+x.spent) || 0),
         checklist: Array.isArray(x.checklist) ? x.checklist.filter((c) => c && typeof c.text === 'string').map((c) => ({ id: String(c.id || uid()), text: c.text, done: !!c.done })) : [],
         done: !!x.done, doneAt: isKey(x.doneAt) ? x.doneAt : '', focus: isKey(x.focus) ? x.focus : '',
         created: isKey(x.created) ? x.created : today
@@ -258,6 +267,10 @@
     if (x.done && x.doneAt) meta += `<span>${esc(tc('done'))} ${LO.shortDate(x.doneAt)}</span>`;
     if (cl.length) meta += `<span>${clDone}/${cl.length}</span>`;
     if (x.pri === 2 && !x.done) meta += `<span class="pri-high">${esc(t('priHigh'))}</span>`;
+    const blk = !x.done && LO.planner && LO.planner.todoBlock ? LO.planner.todoBlock(x.id) : null;
+    if (blk) meta += `<span class="todo-block">${esc(t('blockTag')(LO.dueInfo(blk.date).text, LO.fmtMin(blk.start)))}</span>`;
+    if (x.spent) meta += `<span>${esc(t('spentTag')(x.spent, x.est))}</span>`;
+    else if (x.est && !x.done && !blk) meta += `<span>${esc(t('estOpt')(x.est))}</span>`;
     let sub = '';
     if (cl.length && !compact && !x.done) {
       sub = `<ul class="subs">${cl.map((c) => `<li><label><input type="checkbox" data-act="sub" data-sub="${esc(c.id)}"${c.done ? ' checked' : ''}><span>${esc(c.text)}</span></label></li>`).join('')}</ul>`;
@@ -339,6 +352,7 @@
   function openEditor(kind, id) {
     const item = id ? find(kind, id) : null;
     const isNew = !item;
+    const blk = item && kind === 'todo' && LO.planner && LO.planner.todoBlock ? LO.planner.todoBlock(id) : null;
     const v = item || {
       title: '', notes: '', cat: kind === 'daily' || kind === 'habit' ? 'health' : 'other',
       up: true, down: false, days: [1, 1, 1, 1, 1, 1, 1], every: 1, mday: 0, due: '', pri: 1, checklist: []
@@ -365,6 +379,10 @@
         + `<button type="button" class="btn sm" data-qdue="0">${esc(tc('today'))}</button><button type="button" class="btn sm" data-qdue="1">${esc(tc('tomorrow'))}</button>`
         + `<button type="button" class="btn sm" data-qdue="mon">${esc(t('nextWeek'))}</button><button type="button" class="btn sm ghost" data-qdue="">${esc(t('clearDue'))}</button></div></div>`
         + `<div class="fld"><span>${esc(t('pri'))}</span><div class="chips">${LO.chips('pri', [[0, esc(t('priLow'))], [1, esc(t('priMid'))], [2, esc(t('priHigh'))]], 'radio', [v.pri])}</div></div>`
+        + `<div class="fld"><span>${esc(t('est'))}</span><div class="chips">${LO.chips('est', ESTS.map((m) => [m, esc(m ? t('estOpt')(m) : t('estNone'))]), 'radio', [v.est || 0])}</div></div>`
+        + `<div class="fld"><span>${esc(t('block'))}</span><div class="row"><input class="input date" type="date" name="bdate" value="${esc(blk ? blk.date : '')}">`
+        + `<input class="input date" type="time" name="btime" step="900" value="${esc(blk ? LO.fmtMin(blk.start) : '')}">`
+        + `<button type="button" class="btn sm ghost" data-bclear>${esc(t('blockClear'))}</button></div><p class="hint">${esc(t('blockHint'))}</p></div>`
         + `<div class="fld"><span>${esc(t('checklist'))}</span><ul class="cl-edit">${v.checklist.map((c) => clLine(c)).join('')}</ul>`
         + `<button type="button" class="btn sm" data-cladd>${LO.icon.plus}<span>${esc(t('checklistAdd'))}</span></button></div>`;
     }
@@ -394,6 +412,8 @@
           else if (q === 'mon') val = LO.keyOf(LO.addDays(LO.mondayOf(new Date()), 7));
           $('input[name="due"]', dlg).value = val;
         }));
+        const bclear = $('[data-bclear]', dlg);
+        if (bclear) bclear.addEventListener('click', () => { $('input[name="bdate"]', dlg).value = ''; $('input[name="btime"]', dlg).value = ''; });
         const list = $('.cl-edit', dlg);
         if (list) {
           const addLine = () => {
@@ -409,6 +429,13 @@
       onSave(dlg) {
         const title = $('input[name="title"]', dlg).value.trim();
         if (!title) return t('errTitle');
+        let block = null;
+        if (kind === 'todo') {
+          const bd = $('input[name="bdate"]', dlg).value;
+          const bt = $('input[name="btime"]', dlg).value;
+          if (!!bd !== !!bt) return t('errBlock');
+          if (bd) block = { date: bd, start: LO.toMin(bt) };
+        }
         const fields = { title, notes: $('textarea[name="notes"]', dlg).value.trim(), cat: LO.checkedVal(dlg, 'cat') || 'other' };
         if (kind === 'habit') {
           const dirs = LO.checkedVals(dlg, 'dir');
@@ -435,6 +462,7 @@
         } else {
           fields.due = $('input[name="due"]', dlg).value || '';
           fields.pri = +(LO.checkedVal(dlg, 'pri') || 1);
+          fields.est = +(LO.checkedVal(dlg, 'est') || 0);
           const old = item ? item.checklist : [];
           fields.checklist = $$('.cl-edit li', dlg).map((li) => {
             const inp = $('input[data-cl]', li);
@@ -444,9 +472,15 @@
           }).filter(Boolean);
         }
         const today = LO.todayKey();
+        const newId = uid();
+        if (kind === 'todo' && LO.planner && LO.planner.setTodoBlock && (block || blk)) {
+          // keep a length set by dragging on the schedule unless the estimate changed
+          const dur = blk && item.est === fields.est ? blk.end - blk.start : (fields.est || 60);
+          LO.planner.setTodoBlock(isNew ? newId : id, block && Object.assign(block, { end: block.start + dur, title, cat: fields.cat }));
+        }
         LO.mutate(T, (s) => {
           if (isNew) {
-            const base = { id: uid(), created: today };
+            const base = { id: newId, created: today };
             if (kind === 'habit') s.habits.push(Object.assign(base, { log: {} }, fields));
             else if (kind === 'daily') s.dailies.push(Object.assign(base, { done: {} }, fields));
             else s.todos.push(Object.assign(base, { done: false, doneAt: '', focus: '' }, fields));
@@ -458,6 +492,7 @@
         return true;
       },
       onDelete: isNew ? null : () => {
+        if (kind === 'todo' && blk) LO.planner.setTodoBlock(id, null);
         LO.mutate(T, (s) => {
           const key = kind === 'habit' ? 'habits' : kind === 'daily' ? 'dailies' : 'todos';
           s[key] = s[key].filter((x) => x.id !== id);
@@ -622,6 +657,14 @@
       const today = LO.todayKey();
       const limit = LO.keyOf(LO.addDays(new Date(), days));
       return sortTodos(openTodos().filter((x) => x.focus !== today && x.due && x.due <= limit));
+    },
+    // minutes from a focus session spent on a to-do
+    addSpent(id, mins) {
+      const x = T.s.todos.find((y) => y.id === id);
+      if (!x) return null;
+      x.spent = (x.spent || 0) + mins;
+      T.save();
+      return x;
     },
     todosDoneSince: (k) => T.s.todos.filter((x) => x.done && x.doneAt >= k).length,
     activity(add) {

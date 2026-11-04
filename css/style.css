@@ -292,6 +292,9 @@ main { padding: 18px clamp(14px, 3vw, 32px) 40px; }
 .ev.tight .ev-t { -webkit-line-clamp: 1; flex: 0 1 auto; min-width: 0; }
 .ev.tight .ev-m { flex: 0 0 auto; }
 .ev.once { background-image: repeating-linear-gradient(135deg, transparent 0 7px, var(--stripe) 7px 10px); }
+.ev.is-todo { border-left-style: dashed; }
+.ev.is-done { opacity: .55; }
+.ev.is-done .ev-t { text-decoration: line-through; }
 .ev:hover { filter: brightness(.98); }
 .ev .grip { position: absolute; left: 0; right: 0; bottom: 0; height: 8px; cursor: ns-resize; }
 .ev .grip::after {
