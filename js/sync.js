@@ -144,21 +144,26 @@
     }
     return null;
   }
-  async function readGist() {
-    const g = await gh(`/gists/${cfg.gistId}`);
+  // The sync file and the gist version it came from; rev reads an earlier version.
+  async function readGist(rev) {
+    const g = await gh(`/gists/${cfg.gistId}${rev ? `/${rev}` : ''}`);
     if (!g || !g.files || !g.files[FILE]) return null;
     const f = g.files[FILE];
-    if (!f.truncated) return f.content;
-    try { return await (await fetch(f.raw_url)).text(); } catch (_) { throw new SyncError('net'); }
+    const version = rev || (g.history && g.history[0] ? g.history[0].version : '');
+    if (!f.truncated) return { text: f.content, version };
+    try { return { text: await (await fetch(f.raw_url)).text(), version }; } catch (_) { throw new SyncError('net'); }
   }
+  // Saves the sync file; returns the gist versions just before and after this save.
   async function writeGist(content) {
     if (cfg.gistId) {
       const r = await gh(`/gists/${cfg.gistId}`, { method: 'PATCH', body: JSON.stringify({ files: { [FILE]: { content } } }) });
-      if (r) return;
+      const h = (r && r.history) || [];
+      if (r) return { before: h[1] ? h[1].version : '', after: h[0] ? h[0].version : '' };
     }
     const g = await gh('/gists', { method: 'POST', body: JSON.stringify({ description: DESC, public: false, files: { [FILE]: { content } } }) });
     cfg.gistId = g.id;
     saveCfg();
+    return { before: '', after: '' };
   }
 
   /* ---------------- bundle ---------------- */
@@ -196,6 +201,8 @@
    * (the base, kept on this device), so changes made on each side are all kept.
    * Without a base (the first sync, or right after importing a backup) the more
    * recently changed copy of each section wins whole.
+   * If another device saved between reading and saving here, its version is
+   * fetched from the gist's history, combined in too, and saved again.
    * When this device would change but someone is typing, only the upload happens;
    * the base stays put, so the next round brings the rest here.
    */
@@ -204,8 +211,8 @@
     const bundle = localBundle();
     const startStamps = JSON.stringify(meta.stamps);
     if (!cfg.gistId) cfg.gistId = await findGist();
-    const text = cfg.gistId ? await readGist() : null;
-    if (!text) {
+    let read = cfg.gistId ? await readGist() : null;
+    if (!read) {
       // nothing in the cloud yet: claim every section with the current time and upload
       const now = Date.now();
       parts().forEach(({ name }) => { if (!bundle.stamps[name]) bundle.stamps[name] = meta.stamps[name] = now; });
@@ -215,12 +222,11 @@
       if (opts && opts.announce) LO.toast(t('uploaded'));
       return 'same';
     }
-    const remote = await decrypt(text);
-    const rparts = remote.parts || {};
+    const remote = await decrypt(read.text);
+    let rparts = remote.parts || {};
     const rs = remote.stamps || {};
     const base = readBase();
     const out = { app: 'weekly-planner', v: 4, stamps: {}, parts: {} };
-    const changedHere = [];
     let upload = false;
     parts().forEach(({ name }) => {
       const L = bundle.parts[name];
@@ -233,10 +239,27 @@
       else M = (rs[name] || 0) > ls ? R : L;
       out.parts[name] = M;
       out.stamps[name] = Math.max(ls, rs[name] || 0);
-      if (!same(M, L)) changedHere.push(name);
       if (!same(M, R)) upload = true;
     });
-    if (upload) await writeGist(await encrypt(out));
+    for (let tries = 0; upload && tries < 3; tries++) {
+      const written = JSON.parse(JSON.stringify(out.parts));
+      const { before, after } = await writeGist(await encrypt(out));
+      if (!before || !read.version || before === read.version) break;
+      // another device saved in between, and this save covered it: bring its changes back
+      const theirs = await readGist(before);
+      if (!theirs) break;
+      const other = await decrypt(theirs.text);
+      const oparts = other.parts || {};
+      parts().forEach(({ name }) => {
+        if (oparts[name] == null) return;
+        out.parts[name] = merge3(rparts[name] == null ? undefined : rparts[name], out.parts[name], oparts[name], true);
+        out.stamps[name] = Math.max(out.stamps[name], (other.stamps || {})[name] || 0);
+      });
+      // the next save goes on top of this one
+      rparts = written;
+      read = { version: after };
+    }
+    const changedHere = parts().map(({ name }) => name).filter((name) => !same(out.parts[name], bundle.parts[name]));
     if (!changedHere.length) {
       saveBase(out.parts);
       return 'same';
@@ -332,6 +355,7 @@
           if (status === 'error') { err.textContent = statusMsg; return; }
           LO.closeForm();
           LO.toast(t('enabled'));
+          LO.refresh();
         });
         return false;
       },
@@ -341,6 +365,7 @@
         clearBase();
         setStatus('off');
         LO.toast(t('disabled'));
+        LO.refresh();
       } : null
     });
   }
@@ -373,5 +398,5 @@
   // for sync-photos.js: the same GitHub access and encryption
   LO.syncKit = { gh, encrypt, decrypt, fail, saveCfg, photosOn, get cfg() { return cfg; } };
 
-  LO.sync = { open, start, pull, push, touchAll, photosOn, status: () => status, label: () => statusText(true) };
+  LO.sync = { open, start, pull, push, touchAll, photosOn, on: enabled, status: () => status, label: () => statusText(true) };
 })();

@@ -359,6 +359,7 @@
     let h = `<div class="view-head"><div><h1>${esc(LO.dateLine(now))}</h1><p class="sub">${esc(greet)}</p>`
       + (streak ? `<${LO.pageShown('records') ? 'a href="#/growth/records"' : 'span'} class="streak-pill${st.today ? ' is-on' : ''}" title="${esc(t('streakTip'))}">${esc(streak)}</${LO.pageShown('records') ? 'a' : 'span'}>` : '') + '</div></div>';
     if (LO.review) h += LO.review.nudgeHTML();
+    h += LO.backup.nudgeHTML();
     h += '<div class="today-grid">';
     h += `<div class="tcol-a">${tripCard()}${card('schedule')}${card('timer')}</div>`;
     h += `<div class="tcol-b">${card('focus')}${card('dailies')}${card('upcoming')}</div>`;
@@ -380,6 +381,8 @@
     if (ro) { LO.review.open(+ro.dataset.ropen); return; }
     const rs = e.target.closest('[data-rskip]');
     if (rs) { LO.review.skip(rs.dataset.rskip); return; }
+    const bk = e.target.closest('[data-backup]');
+    if (bk) { LO.backup.act(bk.dataset.backup); return; }
     const ot = e.target.closest('[data-opentrip]');
     if (ot) { LO.travel.show(ot.dataset.opentrip); return; }
     const w = e.target.closest('[data-water]');
