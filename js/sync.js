@@ -14,6 +14,9 @@
   const CFG_KEY = 'planner:sync';
   const META_KEY = 'planner:sync-meta';
   const BASE_KEY = 'planner:sync-base';
+  // this device's data from just before it took the cloud copy, kept for 30 days
+  const PRE_KEY = 'planner:pre-sync';
+  const PRE_DAYS = 30;
   const PLANNER_KEY = 'weekly-planner:v2';
   const DESC = 'My Planner sync (encrypted)';
   const FILE = 'my-planner-sync.json';
@@ -27,7 +30,8 @@
       step1Hint: '打开的页面已经勾好了 gist 权限。Expiration 可以选 No expiration，拉到最下面点 Generate token，复制以 ghp_ 开头的那串字符。',
       step2: '第 2 步：填进来', token: 'GitHub 令牌', tokenPh: 'ghp_ 开头的一串字符', pass: '同步密码', passPh: '自己设一个，至少 6 位',
       passHint: '数据会先用这个密码加密再上传，GitHub 上看不到内容。每台设备都要填同一个密码；忘了密码就解不开，只能关掉同步重新开始。',
-      second: '在第二台设备上开启时，会以云端的数据为准。如果这台设备上有想保留的内容，先在 ⋯ 菜单里导出备份。',
+      second: '在第二台设备上开启（或者关掉后重新开启）时，会以云端的数据为准。这台设备上原来的内容会先存一份，30 天内可以在这里下载成备份文件。',
+      pre: (d) => `开启同步前，这台设备上的数据存了一份（${d}）。`, preDl: '下载这份备份', preHint: '下载后可以用 ⋯ → 导入备份 恢复，或者只是留着以防万一。',
       photosOn: '同步衣橱照片', photos: '照片会单独加密，放在另一个私密 Gist 里，只上传新加或换过的照片。照片多的话，第一次同步会慢一些，也会用掉一些手机流量。',
       on: '开启同步', save: '保存', off: '关闭同步', confirmOff: '确认关闭', now: '立即同步',
       st: { off: '未开启', syncing: '同步中…', ok: (s) => `已同步 ${s}`, error: (m) => `出错：${m}` },
@@ -44,7 +48,8 @@
       step1Hint: 'The page opens with the gist permission already ticked. Pick "No expiration" if you like, scroll down, click Generate token and copy the code starting with ghp_.',
       step2: 'Step 2: paste it here', token: 'GitHub token', tokenPh: 'Starts with ghp_', pass: 'Sync password', passPh: 'Choose one, at least 6 characters',
       passHint: 'Your data is encrypted with this password before upload, so GitHub cannot read it. Use the same password on every device. If you forget it, the data cannot be decrypted; turn sync off and start again.',
-      second: 'When you turn sync on for a second device, the cloud copy wins. Export a backup from the ⋯ menu first if this device has anything you want to keep.',
+      second: "When you turn sync on for a second device (or again after turning it off), the cloud copy wins. This device's data is kept first, and for 30 days you can download it here as a backup file.",
+      pre: (d) => `This device's data from before sync was turned on is kept (${d}).`, preDl: 'Download that backup', preHint: 'Import it with ⋯ → Import backup to go back to it, or just keep it to be safe.',
       photosOn: 'Sync wardrobe photos', photos: 'Photos are encrypted and kept in a second private gist; only new or changed photos are sent. With many photos the first sync takes a while and uses some mobile data.',
       on: 'Turn on sync', save: 'Save', off: 'Turn off sync', confirmOff: 'Confirm', now: 'Sync now',
       st: { off: 'Off', syncing: 'Syncing…', ok: (s) => `Synced ${s}`, error: (m) => `Error: ${m}` },
@@ -355,11 +360,14 @@
         + `<label class="fld"><span>${esc(t('token'))}</span><input class="input" type="password" name="stoken" autocomplete="off" value="${esc(cfg.token || '')}" placeholder="${esc(t('tokenPh'))}"></label>`
         + `<label class="fld"><span>${esc(t('pass'))}</span><input class="input" type="password" name="spass" autocomplete="new-password" value="${esc(cfg.pass || '')}" placeholder="${esc(t('passPh'))}"></label>`
         + `<p class="hint">${esc(t('passHint'))}</p><p class="hint">${esc(t('second'))}</p>`
+        + (preSync() ? `<div class="fld sync-pre"><p class="hint">${esc(t('pre')(new Date(preSync().at).toLocaleDateString(LO.lang() === 'zh' ? 'zh-CN' : 'en-US')))}</p><button type="button" class="btn sm" data-syncpre>${esc(t('preDl'))}</button><p class="hint">${esc(t('preHint'))}</p></div>` : '')
         + `<div class="fld"><label class="check"><input type="checkbox" name="sphotos"${cfg.photos === false ? '' : ' checked'}>${esc(t('photosOn'))}</label><p class="hint">${esc(t('photos'))}</p></div>`
         + `<div class="row sync-row"><span class="sync-status" data-syncstatus>${esc(statusText(false))}</span>${on ? `<button type="button" class="btn sm" data-syncnow>${esc(t('now'))}</button>` : ''}</div>`,
       onOpen(dlg) {
         const b = $('[data-syncnow]', dlg);
         if (b) b.addEventListener('click', () => pull({ force: true, announce: true }));
+        const p = $('[data-syncpre]', dlg);
+        if (p) p.addEventListener('click', downloadPre);
       },
       onSave(dlg) {
         const token = $('input[name="stoken"]', dlg).value.trim();
@@ -372,7 +380,7 @@
         // Anything else is joining a sync, and the cloud copy wins.
         const tokenOnly = !!cfg.token && pass === cfg.pass && token !== cfg.token;
         if (tokenOnly) cfg = Object.assign({}, cfg, { token });
-        else if (token !== cfg.token || pass !== cfg.pass) { cfg = { token, pass, on: true, join: true }; clearBase(); }
+        else if (token !== cfg.token || pass !== cfg.pass) { keepPre(); cfg = { token, pass, on: true, join: true }; clearBase(); }
         cfg.on = true;
         cfg.photos = $('input[name="sphotos"]', dlg).checked;
         saveCfg();
@@ -395,6 +403,36 @@
         LO.refresh();
       } : null
     });
+  }
+
+  // Before a device takes the cloud copy, keep what it had. If there's no room in
+  // this browser for a second copy, download a backup file instead.
+  function keepPre() {
+    const parts = localBundle().parts;
+    try { localStorage.setItem(PRE_KEY, JSON.stringify({ at: Date.now(), parts })); } catch (_) { LO.backup.exportNow(); }
+  }
+  function preSync() {
+    const p = LO.readJSON(PRE_KEY);
+    if (!p || !p.parts || Date.now() - p.at > PRE_DAYS * 864e5) {
+      if (p) { try { localStorage.removeItem(PRE_KEY); } catch (_) { /* ignore */ } }
+      return null;
+    }
+    return p;
+  }
+  // the kept copy as a file that ⋯ → Import backup reads (photos aren't in it; they stay put)
+  function downloadPre() {
+    const p = preSync();
+    if (!p) return;
+    const stores = Object.assign({}, p.parts);
+    delete stores.planner;
+    const data = { app: 'weekly-planner', v: 3, exportedAt: new Date(p.at).toISOString(), settings: LO.settings(), planner: p.parts.planner, stores, files: {} };
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    a.download = `planner-before-sync-${LO.keyOf(new Date(p.at))}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
   }
 
   function start() {

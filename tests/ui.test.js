@@ -144,6 +144,69 @@
     eq(g.due, key(app, 1));
   });
 
+  uiTest('semester: a dated assignment is a to-do; ticking it off asks for the score; the score finishes it', async (app) => {
+    app.LO.planner.importCalendar({ weekly: [{ title: 'MATH 211', days: [1], start: 600, end: 650, place: '', note: '', from: '', until: '', except: [] }], once: [] }, 'class');
+    await app.go('#/growth/term');
+    await app.click('[data-tnew]');
+    await fillForm(app, { tname: 'Fall', tstart: key(app, -30), tend: key(app, 60) });
+    await app.click('[data-tfrom]');
+    const c0 = app.LO.term.all()[0].courses[0];
+    // a syllabus: homework 40% by points, final 60%; and an A from 94
+    await app.click(`[data-course="${c0.id}"] [data-cedit]`);
+    for (const [n, w] of [['Homework', 40], ['Final', 60]]) {
+      await app.click('[data-catadd]');
+      const li = app.$$('.cat-edit li').pop();
+      app.type(app.$('[data-catn]', li), n);
+      app.type(app.$('[data-catw]', li), String(w));
+    }
+    await fillForm(app, { cscale: 'custom', 'cut-A': 94, 'cut-A-': 90 });
+    let c = app.LO.term.all()[0].courses[0];
+    eq(c.cats.map((k) => [k.name, k.weight]), [['Homework', 40], ['Final', 60]]);
+    await app.click(`[data-course="${c.id}"] [data-inew]`);
+    await fillForm(app, { iname: 'HW 1', icat: c.cats[0].id, idate: key(app, 2), imax: 20 });
+    c = app.LO.term.all()[0].courses[0];
+    const hw = c.items.find((i) => i.title === 'HW 1');
+    const todo = app.LO.tasks.todoById(`term-${hw.id}`);
+    ok(todo && todo.due === key(app, 2), 'a to-do due that day');
+    app.LO.tasks.toggleTodo(todo.id);
+    await app.wait(30);
+    ok(app.$$('#toast button').some((b) => b.textContent === app.LO.t('term.addScore')), 'offers to add the score');
+    ok(app.$('.term-wait'), 'listed as waiting for a grade');
+    await app.click(`.term-wait [data-item="${hw.id}"]`);
+    await fillForm(app, { iscore: 19 });
+    ok(!app.$('.term-wait'), 'no longer waiting');
+    ok(app.$(`[data-course="${c.id}"] .term-grade`).textContent.includes('95%') && app.$(`[data-course="${c.id}"] .term-grade`).textContent.includes('A'), '19/20 is 95%, an A here');
+  });
+
+  uiTest('undo after deleting a to-do on the schedule brings back its time too', async (app) => {
+    app.LO.tasks.addTodo({ title: 'Lab report' });
+    const x = app.LO.tasks.store.s.todos[app.LO.tasks.store.s.todos.length - 1];
+    app.LO.tasks.openEditor('todo', x.id);
+    await fillForm(app, { bdate: key(app, 1), btime: '10:00' });
+    app.LO.tasks.openEditor('todo', x.id);
+    await app.click('#formDel');
+    await app.click('#formDel');
+    eq(app.LO.planner.todoBlock(x.id), null, 'gone from the schedule');
+    app.LO.undo();
+    ok(app.LO.tasks.todoById(x.id), 'the to-do is back');
+    eq(app.LO.planner.todoBlock(x.id), { date: key(app, 1), start: 600, end: 660 }, 'and its time');
+  });
+
+  uiTest('Today: fold a card, then move a card to the top under Customize', async (app) => {
+    await app.go('#/today');
+    await app.click('[data-cfold="schedule"]');
+    ok(app.$('.is-folded [data-cfold="schedule"]'), 'folded to its title');
+    await app.click('.is-folded [data-cfold="schedule"]');
+    ok(!app.$('.is-folded [data-cfold="schedule"]'), 'open again');
+    await app.click('#moreBtn');
+    await app.click('[data-act="customize"]');
+    const li = app.$('.card-order li[data-card="health"]');
+    for (let i = 0; i < 15; i++) await app.click(app.$('[data-cmove="-1"]', li));
+    await app.click('#formSave');
+    eq(app.LO.settings().todayOrder[0], 'health');
+    eq(app.$('#view-today .o4').style.order, '1', 'first down the page on a phone');
+  });
+
   uiTest('search: finds a to-do and opens it', async (app) => {
     app.LO.tasks.addTodo({ title: 'Buy a lab notebook' });
     app.d.dispatchEvent(new app.w.KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true, bubbles: true }));

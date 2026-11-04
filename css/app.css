@@ -1038,3 +1038,26 @@ button.stat:hover { border-color: var(--line-2); }
 .money-fixed { margin-bottom: 14px; display: grid; gap: 8px; }
 .money-fixed h2 { margin: 0; font-size: 16px; }
 .money-fixed .hint { margin: 0; }
+
+/* ---------- semester: categories, letter scales, waiting for grades ---------- */
+.cat-edit { margin: 0 0 8px; padding: 0; list-style: none; display: grid; gap: 6px; }
+.cat-edit li { display: grid; grid-template-columns: 1fr 80px auto; gap: 6px; align-items: center; }
+.cut-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; margin-top: 8px; }
+.cut-grid label { display: grid; gap: 2px; font-size: 12.5px; color: var(--muted); }
+.term-cats { margin: 0; }
+.term-wait .term-when { color: var(--ink); }
+
+/* ---------- Today: folded cards and the card order ---------- */
+.fold-btn { margin-left: 4px; width: 26px; height: 26px; border: 0; border-radius: 6px; background: none; color: var(--muted); font-size: 14px; cursor: pointer; flex: 0 0 auto; }
+.fold-btn:hover { background: var(--hover); color: var(--ink); }
+.card.is-folded { padding: 0; }
+.fold-head { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; border: 0; border-radius: inherit; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.fold-head b { font-size: 15px; }
+.fold-head span { font-size: 13px; color: var(--muted); }
+.fold-head:hover { background: var(--hover); }
+.card-order { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.card-order li { display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.card-order .co-name { font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-head:has(> .fold-btn) { justify-content: flex-start; }
+.card-head:has(> .fold-btn) > :first-child { margin-right: auto; }
+#view-today > .card.is-folded { margin-bottom: 16px; }

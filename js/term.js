@@ -2,6 +2,9 @@
  * Semester page (Growth → 学期): the term's dates and week count, each course's
  * grade from its assignments and exams, the term GPA, and what's coming up.
  * Grade math is in term-calc.js. Today shows the week of term under the date.
+ * An assignment or exam with a date is also a to-do (id "term-<item id>"), due
+ * that day, so it shows on the schedule and in Tasks; ticking it off asks for
+ * the score, and putting in the score ticks it off.
  */
 (() => {
   'use strict';
@@ -25,7 +28,12 @@
       weight: '占总成绩的比例（%）', weightHint: '可不填。都不填时，每一项按分数一样算。', score: '得分', scorePh: '还没出分就空着', max: '满分', date: '日期',
       noItems: '还没有作业或考试。', notGraded: '还没有成绩', needed: (p) => `剩下的要拿到平均 ${p}% 才能达到目标`, reached: '已经稳稳达到目标了', tooHigh: '剩下的满分也够不到目标了',
       inDays: (n) => (n === 0 ? '今天' : n === 1 ? '明天' : `${n} 天后`), letterHint: '字母成绩按常见的美国标准换算（93 以上 A，90 A-，87 B+…），各校可能不同。',
-      deleteTerm: '删除这个学期', delCourse: '删除课程', todayLine: (w, m, d) => `第 ${w}/${m} 周 · 距期末 ${d} 天`
+      deleteTerm: '删除这个学期', delCourse: '删除课程', todayLine: (w, m, d) => `第 ${w}/${m} 周 · 距期末 ${d} 天`,
+      cats: '成绩构成', catsHint: '按课程大纲填，比如作业 30%、期中 25%、期末 35%。同一类里按分数加起来算。不填就按每一项自己的比例。', catName: '类别', catNamePh: '比如 作业', catWeight: '占比 %', addCat: '添加类别',
+      catsSum: (n) => `加起来是 ${n}%`, cat: '属于哪一类', noCat: '不归类（单独填占比）',
+      scale: '字母成绩标准', scales: { us: '常见美国标准（93 A、90 A-、87 B+…）', plain: '简单（90 A、80 B、70 C、60 D）', custom: '自己设' }, cutsHint: '每个字母的最低分，不用的字母空着。',
+      todoTitle: (c, i) => `${c}：${i}`, todoHint: '有日期又还没出分的，会自动出现在待办里，课表上那天也会显示截止。',
+      waiting: '交了，等出分', waitingHint: '出分后点一下填上。', addScore: '填分数'
     },
     en: {
       title: 'Semester', none: 'No semester set up yet', noneHint: "Add the start and end dates to see which week of term it is and how long until finals. Add your courses and grades and it works out each course's grade and your GPA.",
@@ -41,7 +49,12 @@
       weight: 'Share of the final grade (%)', weightHint: 'Optional. If none have one, every item counts the same.', score: 'Score', scorePh: 'Leave empty until graded', max: 'Out of', date: 'Date',
       noItems: 'No assignments or exams yet.', notGraded: 'No grade yet', needed: (p) => `Average ${p}% on the rest to reach your target`, reached: 'Target reached already', tooHigh: 'Even full marks on the rest will not reach the target',
       inDays: (n) => (n === 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`), letterHint: 'Letters use common US cutoffs (93 A, 90 A-, 87 B+…); your school may differ.',
-      deleteTerm: 'Delete this semester', delCourse: 'Delete course', todayLine: (w, m, d) => `Week ${w}/${m} · ${d} days to finals`
+      deleteTerm: 'Delete this semester', delCourse: 'Delete course', todayLine: (w, m, d) => `Week ${w}/${m} · ${d} days to finals`,
+      cats: 'Grade breakdown', catsHint: 'From the syllabus, e.g. homework 30%, midterm 25%, final 35%. Items in a category add up by points. Leave empty to give each item its own share.', catName: 'Category', catNamePh: 'e.g. Homework', catWeight: 'Share %', addCat: 'Add a category',
+      catsSum: (n) => `Adds up to ${n}%`, cat: 'Category', noCat: 'None (its own share)',
+      scale: 'Letter grades', scales: { us: 'Common US (93 A, 90 A-, 87 B+…)', plain: 'Plain (90 A, 80 B, 70 C, 60 D)', custom: 'My own' }, cutsHint: 'The lowest score for each letter; leave unused ones empty.',
+      todoTitle: (c, i) => `${c}: ${i}`, todoHint: "Ones with a date and no score yet also show up in your to-dos and on the schedule as due that day.",
+      waiting: 'Handed in, waiting for a grade', waitingHint: 'Tap one to put in the score.', addScore: 'Add score'
     }
   });
   const t = LO.ns('term');
@@ -57,13 +70,20 @@
       if (!x || typeof x.name !== 'string') return;
       out.terms.push({
         id: String(x.id || uid()), name: x.name, start: isKey(x.start) ? x.start : '', end: isKey(x.end) ? x.end : '',
-        courses: (x.courses || []).filter((c) => c && typeof c.name === 'string').map((c) => ({
-          id: String(c.id || uid()), name: c.name, credits: Math.max(0, num(c.credits) || 0), target: num(c.target),
-          items: (c.items || []).filter((i) => i && typeof i.title === 'string').map((i) => ({
-            id: String(i.id || uid()), title: i.title, kind: KINDS.includes(i.kind) ? i.kind : 'hw',
-            weight: Math.max(0, num(i.weight) || 0), score: num(i.score), max: num(i.max) > 0 ? num(i.max) : 100, date: isKey(i.date) ? i.date : ''
-          }))
-        }))
+        courses: (x.courses || []).filter((c) => c && typeof c.name === 'string').map((c) => {
+          const cats = (c.cats || []).filter((k) => k && typeof k.name === 'string' && k.name.trim()).map((k) => ({ id: String(k.id || uid()), name: k.name.trim().slice(0, 30), weight: Math.max(0, num(k.weight) || 0) }));
+          const cuts = {};
+          if (c.cuts && typeof c.cuts === 'object') C.LETTERS.forEach((l) => { const v = num(c.cuts[l]); if (v > 0) cuts[l] = v; });
+          return {
+            id: String(c.id || uid()), name: c.name, credits: Math.max(0, num(c.credits) || 0), target: num(c.target),
+            cats, scale: ['plain', 'custom'].includes(c.scale) ? c.scale : 'us', cuts,
+            items: (c.items || []).filter((i) => i && typeof i.title === 'string').map((i) => ({
+              id: String(i.id || uid()), title: i.title, kind: KINDS.includes(i.kind) ? i.kind : 'hw',
+              weight: Math.max(0, num(i.weight) || 0), score: num(i.score), max: num(i.max) > 0 ? num(i.max) : 100, date: isKey(i.date) ? i.date : '',
+              cat: cats.some((k) => k.id === i.cat) ? i.cat : '', todo: !!i.todo
+            }))
+          };
+        })
       });
     });
     if (!out.terms.some((x) => x.id === out.cur)) out.cur = out.terms.length ? out.terms[out.terms.length - 1].id : '';
@@ -77,6 +97,52 @@
     return S.s.terms.find((x) => x.start && x.start <= k && k <= x.end) || curTerm();
   };
   const fmtPct = (p) => `${LO.round1(p)}%`;
+
+  /* ---------------- assignments as to-dos ---------------- */
+  const todoIdOf = (i) => `term-${i.id}`;
+  // Brings an item's to-do in step: made once for a dated item with no score (i.todo
+  // remembers that, so a to-do deleted on purpose doesn't come back), renamed and
+  // moved with the item, ticked off when the score goes in. Returns whether tasks changed.
+  function linkTodo(c, i) {
+    if (!LO.tasks) return false;
+    const T = LO.tasks.store.s;
+    const x = T.todos.find((y) => y.id === todoIdOf(i));
+    const title = t('todoTitle')(c.name, i.title);
+    if (!x) {
+      if (i.todo || !i.date || i.score != null) return false;
+      T.todos.push({ id: todoIdOf(i), title, notes: '', cat: 'study', due: i.date, pri: i.kind === 'exam' ? 2 : 1, est: 0, spent: 0, checklist: [], done: false, doneAt: '', focus: '', created: LO.todayKey() });
+      i.todo = true;
+      return true;
+    }
+    i.todo = true;
+    if (x.done) return false;
+    if (i.score != null) { x.done = true; x.doneAt = LO.todayKey(); return true; }
+    if (x.title === title && x.due === i.date) return false;
+    x.title = title;
+    if (i.date) x.due = i.date;
+    return true;
+  }
+  // an item deleted on the semester page takes its open to-do with it
+  function unlinkTodo(i) {
+    if (!LO.tasks) return;
+    const T = LO.tasks.store.s;
+    T.todos = T.todos.filter((y) => y.id !== todoIdOf(i) || y.done);
+  }
+  // A change to an item, with the to-do kept in step and both undone together
+  function changeItem(c, fn, msg, after) {
+    const undoTasks = LO.keepForUndo(LO.tasks && LO.tasks.store);
+    LO.mutate(S, () => { const i = fn(); if (i && linkTodo(c, i) && LO.tasks) LO.tasks.store.save(); if (after) after(i); }, msg, null, undoTasks);
+  }
+  // On start: dated items from before this existed get their to-dos once
+  function linkAll() {
+    let changed = false;
+    S.s.terms.forEach((tm) => tm.courses.forEach((c) => c.items.forEach((i) => { if (!i.todo && i.date && i.score == null) changed = linkTodo(c, i) || changed; })));
+    if (changed) { S.save(); LO.tasks.store.save(); }
+  }
+  const findItem = (todoId) => {
+    for (const tm of S.s.terms) for (const c of tm.courses) for (const i of c.items) if (todoIdOf(i) === todoId) return { tm, c, i };
+    return null;
+  };
 
   /* ---------------- page ---------------- */
   const view = $('#view-term');
@@ -109,14 +175,25 @@
       + (up.length ? `<ul class="term-up-list">${up.slice(0, 8).map(({ c, i }) => `<li class="${i.kind === 'exam' ? 'is-exam' : ''}" data-course="${esc(c.id)}" data-item="${esc(i.id)}"><span class="term-when">${esc(t('inDays')(LO.dayDiff(today, i.date)))}</span><b>${esc(i.title)}</b><span class="hint">${esc(c.name)} · ${esc(t('kinds')[i.kind])} · ${esc(LO.shortDate(i.date))}</span></li>`).join('')}</ul>`
         : `<p class="hint">${esc(t('upEmpty'))}</p>`) + '</section>';
 
+    const waiting = [];
+    tm.courses.forEach((c) => c.items.forEach((i) => {
+      const x = i.score == null && LO.tasks && LO.tasks.todoById(todoIdOf(i));
+      if (x && x.done) waiting.push({ c, i });
+    }));
+    if (waiting.length) {
+      h += `<section class="card term-up term-wait"><header class="card-head"><h2>${esc(t('waiting'))}</h2><span class="hint">${esc(t('waitingHint'))}</span></header>`
+        + `<ul class="term-up-list">${waiting.map(({ c, i }) => `<li data-course="${esc(c.id)}" data-item="${esc(i.id)}"><span class="term-when">${esc(t('addScore'))}</span><b>${esc(i.title)}</b><span class="hint">${esc(c.name)} · ${esc(t('kinds')[i.kind])}${i.date ? ` · ${esc(LO.shortDate(i.date))}` : ''}</span></li>`).join('')}</ul></section>`;
+    }
+
     h += `<div class="section-head"><h2>${esc(t('courses'))}</h2><div class="row"><button type="button" class="btn sm" data-tfrom>${esc(t('fromSchedule'))}</button><button type="button" class="btn sm primary" data-cnew>${LO.icon.plus}<span>${esc(t('addCourse'))}</span></button></div></div>`;
-    h += `<div class="term-grid">${tm.courses.map(courseCard).join('')}</div><p class="hint">${esc(t('letterHint'))}</p>`;
+    h += `<div class="term-grid">${tm.courses.map(courseCard).join('')}</div><p class="hint">${esc(t('todoHint'))} ${esc(t('letterHint'))}</p>`;
     view.innerHTML = h;
   }
 
   function courseCard(c) {
     const p = C.coursePct(c);
-    const l = C.letter(p);
+    const l = C.letter(p, C.scaleOf(c));
+    const catName = (id) => (c.cats.find((k) => k.id === id) || {}).name || '';
     let goal = '';
     if (c.target != null) {
       const n = C.needed(c, c.target);
@@ -125,7 +202,8 @@
     return `<section class="card term-course" data-course="${esc(c.id)}"><header class="card-head"><h3 class="link-btn" data-cedit tabindex="0" role="button">${esc(c.name)}</h3><span class="hint">${c.credits ? `${c.credits} ${esc(t('credits'))}` : ''}</span></header>`
       + `<p class="term-grade">${p == null ? `<span class="hint">${esc(t('notGraded'))}</span>` : `<b>${esc(fmtPct(p))}</b> <span class="term-letter">${esc(l.letter)}</span>`}${c.target != null ? `<small class="hint"> / ${esc(fmtPct(c.target))}</small>` : ''}</p>`
       + (goal ? `<p class="hint">${esc(goal)}</p>` : '')
-      + (c.items.length ? `<ul class="term-items">${c.items.slice().sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1).map((i) => `<li data-item="${esc(i.id)}" tabindex="0" role="button"><span>${esc(i.title)}<small> ${esc(t('kinds')[i.kind])}${i.weight ? ` · ${i.weight}%` : ''}${i.date ? ` · ${esc(LO.shortDate(i.date))}` : ''}</small></span><b>${i.score == null ? '–' : `${LO.round1(i.score)}/${LO.round1(i.max)}`}</b></li>`).join('')}</ul>` : `<p class="hint">${esc(t('noItems'))}</p>`)
+      + (c.cats.length ? `<p class="hint term-cats">${c.cats.map((k) => `${esc(k.name)} ${k.weight}%`).join(' · ')}</p>` : '')
+      + (c.items.length ? `<ul class="term-items">${c.items.slice().sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1).map((i) => `<li data-item="${esc(i.id)}" tabindex="0" role="button"><span>${esc(i.title)}<small> ${esc(catName(i.cat) || t('kinds')[i.kind])}${!i.cat && i.weight ? ` · ${i.weight}%` : ''}${i.date ? ` · ${esc(LO.shortDate(i.date))}` : ''}</small></span><b>${i.score == null ? '–' : `${LO.round1(i.score)}/${LO.round1(i.max)}`}</b></li>`).join('')}</ul>` : `<p class="hint">${esc(t('noItems'))}</p>`)
       + `<button type="button" class="btn sm ghost" data-inew>${LO.icon.plus}<span>${esc(t('addItem'))}</span></button></section>`;
   }
 
@@ -162,29 +240,70 @@
       title: c ? t('editCourse') : t('newCourse'),
       body: `<label class="fld"><span>${esc(t('cname'))}</span><input class="input" name="cname" maxlength="60" value="${esc(c ? c.name : '')}"></label>`
         + `<div class="row"><label class="fld"><span>${esc(t('credits'))}</span><input class="input sm" type="number" min="0" max="12" step="0.5" name="ccred" value="${c ? c.credits : 3}"></label>`
-        + `<label class="fld"><span>${esc(t('target'))}</span><input class="input sm" type="number" min="0" max="110" step="1" name="ctarget" value="${c && c.target != null ? c.target : ''}"></label></div>`,
+        + `<label class="fld"><span>${esc(t('target'))}</span><input class="input sm" type="number" min="0" max="110" step="1" name="ctarget" value="${c && c.target != null ? c.target : ''}"></label></div>`
+        + `<div class="fld"><span>${esc(t('cats'))}</span><ul class="cat-edit">${(c ? c.cats : []).map(catLine).join('')}</ul>`
+        + `<div class="row"><button type="button" class="btn sm" data-catadd>${LO.icon.plus}<span>${esc(t('addCat'))}</span></button><span class="hint" data-catsum></span></div><p class="hint">${esc(t('catsHint'))}</p></div>`
+        + `<div class="fld"><span>${esc(t('scale'))}</span><div class="chips">${LO.chips('cscale', ['us', 'plain', 'custom'].map((k) => [k, esc(t('scales')[k])]), 'radio', [c ? c.scale : 'us'])}</div>`
+        + `<div class="cut-grid" data-cuts${c && c.scale === 'custom' ? '' : ' hidden'}>${C.LETTERS.map((l) => `<label><span>${l}</span><input class="input sm" type="number" min="0" max="110" step="any" name="cut-${l}" value="${c && c.cuts[l] ? c.cuts[l] : ''}" placeholder="${(C.scaleOf({}).find((x) => x[1] === l) || [''])[0]}"></label>`).join('')}</div>`
+        + `<p class="hint" data-cutshint${c && c.scale === 'custom' ? '' : ' hidden'}>${esc(t('cutsHint'))}</p></div>`,
       deleteLabel: t('delCourse'),
+      onOpen(dlg) {
+        const list = $('.cat-edit', dlg);
+        const sum = () => {
+          const n = Array.from(dlg.querySelectorAll('input[data-catw]')).reduce((a, x) => a + (+x.value || 0), 0);
+          $('[data-catsum]', dlg).textContent = n ? t('catsSum')(LO.round1(n)) : '';
+        };
+        sum();
+        $('[data-catadd]', dlg).addEventListener('click', () => {
+          list.insertAdjacentHTML('beforeend', catLine({ id: uid(), name: '', weight: '' }));
+          const ins = list.querySelectorAll('input[data-catn]');
+          ins[ins.length - 1].focus();
+        });
+        list.addEventListener('click', (e) => { const b = e.target.closest('[data-catdel]'); if (b) { b.closest('li').remove(); sum(); } });
+        list.addEventListener('input', sum);
+        dlg.querySelectorAll('input[name="cscale"]').forEach((r) => r.addEventListener('change', () => {
+          const custom = LO.checkedVal(dlg, 'cscale') === 'custom';
+          $('[data-cuts]', dlg).hidden = !custom;
+          $('[data-cutshint]', dlg).hidden = !custom;
+        }));
+      },
       onSave(dlg) {
         const name = $('input[name="cname"]', dlg).value.trim();
         if (!name) return t('errName');
         const credits = Math.max(0, num($('input[name="ccred"]', dlg).value) || 0);
         const target = num($('input[name="ctarget"]', dlg).value);
+        const cats = Array.from(dlg.querySelectorAll('.cat-edit li')).map((li) => ({
+          id: $('input[data-catn]', li).dataset.catn, name: $('input[data-catn]', li).value.trim(), weight: Math.max(0, num($('input[data-catw]', li).value) || 0)
+        })).filter((k) => k.name);
+        const scale = LO.checkedVal(dlg, 'cscale') || 'us';
+        const cuts = {};
+        C.LETTERS.forEach((l) => { const v = num($(`input[name="cut-${l}"]`, dlg).value); if (v > 0) cuts[l] = v; });
+        const fields = { name, credits, target, cats, scale, cuts };
         LO.mutate(S, () => {
-          if (c) Object.assign(c, { name, credits, target });
-          else tm.courses.push({ id: uid(), name, credits, target, items: [] });
+          if (c) {
+            Object.assign(c, fields);
+            // items in a category that was removed go back to their own share
+            c.items.forEach((i) => { if (i.cat && !cats.some((k) => k.id === i.cat)) i.cat = ''; });
+          } else tm.courses.push(Object.assign({ id: uid(), items: [] }, fields));
         }, c ? tc('saved') : tc('added'));
         return true;
       },
-      onDelete: c ? () => LO.mutate(S, () => { tm.courses = tm.courses.filter((y) => y.id !== c.id); }, tc('deleted')) : null
+      onDelete: c ? () => {
+        const undoTasks = LO.keepForUndo(LO.tasks && LO.tasks.store);
+        LO.mutate(S, () => { c.items.forEach(unlinkTodo); tm.courses = tm.courses.filter((y) => y.id !== c.id); if (LO.tasks) LO.tasks.store.save(); }, tc('deleted'), null, undoTasks);
+      } : null
     });
   }
+  const catLine = (k) => `<li><input class="input sm" data-catn="${esc(k.id)}" maxlength="30" value="${esc(k.name)}" placeholder="${esc(t('catNamePh'))}" aria-label="${esc(t('catName'))}">`
+    + `<input class="input sm" type="number" min="0" max="100" step="any" data-catw value="${k.weight === '' ? '' : k.weight}" placeholder="%" aria-label="${esc(t('catWeight'))}">`
+    + `<button type="button" class="icon-btn sm" data-catdel aria-label="${esc(tc('delete'))}">${LO.icon.x}</button></li>`;
 
   function editItem(cid, iid) {
     const tm = curTerm();
     const c = tm && tm.courses.find((y) => y.id === cid);
     if (!c) return;
     const i = iid ? c.items.find((y) => y.id === iid) : null;
-    const v = i || { title: '', kind: 'hw', weight: 0, score: null, max: 100, date: '' };
+    const v = i || { title: '', kind: 'hw', weight: 0, score: null, max: 100, date: '', cat: c.cats.length ? c.cats[0].id : '' };
     LO.openForm({
       title: i ? t('editItem') : t('newItem'),
       badge: c.name,
@@ -192,23 +311,33 @@
         + `<div class="fld"><span>${esc(t('kind'))}</span><div class="chips">${LO.chips('ikind', KINDS.map((k) => [k, esc(t('kinds')[k])]), 'radio', [v.kind])}</div></div>`
         + `<div class="row"><label class="fld"><span>${esc(t('score'))}</span><input class="input sm" type="number" step="any" min="0" name="iscore" value="${v.score == null ? '' : v.score}" placeholder="${esc(t('scorePh'))}"></label>`
         + `<label class="fld"><span>${esc(t('max'))}</span><input class="input sm" type="number" step="any" min="0" name="imax" value="${v.max}"></label></div>`
-        + `<div class="row"><label class="fld"><span>${esc(t('weight'))}</span><input class="input sm" type="number" step="any" min="0" max="100" name="iweight" value="${v.weight || ''}"></label>`
-        + `<label class="fld"><span>${esc(t('date'))}</span><input class="input date" type="date" name="idate" value="${esc(v.date)}"></label></div><p class="hint">${esc(t('weightHint'))}</p>`,
+        + (c.cats.length ? `<label class="fld"><span>${esc(t('cat'))}</span><select class="input" name="icat">${c.cats.map((k) => `<option value="${esc(k.id)}"${k.id === v.cat ? ' selected' : ''}>${esc(k.name)} · ${k.weight}%</option>`).join('')}<option value=""${v.cat ? '' : ' selected'}>${esc(t('noCat'))}</option></select></label>` : '')
+        + `<div class="row"><label class="fld" data-iweight${c.cats.length && v.cat ? ' hidden' : ''}><span>${esc(t('weight'))}</span><input class="input sm" type="number" step="any" min="0" max="100" name="iweight" value="${v.weight || ''}"></label>`
+        + `<label class="fld"><span>${esc(t('date'))}</span><input class="input date" type="date" name="idate" value="${esc(v.date)}"></label></div>`
+        + `<p class="hint">${esc(c.cats.length ? t('todoHint') : `${t('weightHint')} ${t('todoHint')}`)}</p>`,
+      onOpen(dlg) {
+        const sel = $('select[name="icat"]', dlg);
+        if (sel) sel.addEventListener('change', () => { $('[data-iweight]', dlg).hidden = !!sel.value; });
+      },
       onSave(dlg) {
         const title = $('input[name="iname"]', dlg).value.trim();
         if (!title) return t('errName');
         const max = num($('input[name="imax"]', dlg).value);
         const fields = {
           title, kind: LO.checkedVal(dlg, 'ikind') || 'hw', score: num($('input[name="iscore"]', dlg).value),
-          max: max > 0 ? max : 100, weight: Math.max(0, num($('input[name="iweight"]', dlg).value) || 0), date: $('input[name="idate"]', dlg).value || ''
+          max: max > 0 ? max : 100, weight: Math.max(0, num($('input[name="iweight"]', dlg).value) || 0), date: $('input[name="idate"]', dlg).value || '',
+          cat: $('select[name="icat"]', dlg) ? $('select[name="icat"]', dlg).value : ''
         };
-        LO.mutate(S, () => {
-          if (i) Object.assign(i, fields);
-          else c.items.push(Object.assign({ id: uid() }, fields));
+        if (fields.cat) fields.weight = 0;
+        changeItem(c, () => {
+          if (i) return Object.assign(i, fields);
+          const n = Object.assign({ id: uid(), todo: false }, fields);
+          c.items.push(n);
+          return n;
         }, i ? tc('saved') : tc('added'));
         return true;
       },
-      onDelete: i ? () => LO.mutate(S, () => { c.items = c.items.filter((y) => y.id !== i.id); }, tc('deleted')) : null
+      onDelete: i ? () => changeItem(c, () => { unlinkTodo(i); c.items = c.items.filter((y) => y.id !== i.id); if (LO.tasks) LO.tasks.store.save(); return null; }, tc('deleted')) : null
     });
   }
 
@@ -222,7 +351,7 @@
       if (e.cat === 'class' && n && !have.has(n.toLowerCase())) { have.add(n.toLowerCase()); names.push(n); }
     });
     if (!names.length) { LO.toast(t('fromNone')); return; }
-    LO.mutate(S, () => { names.forEach((name) => tm.courses.push({ id: uid(), name, credits: 3, target: null, items: [] })); }, t('fromAdded')(names.length));
+    LO.mutate(S, () => { names.forEach((name) => tm.courses.push({ id: uid(), name, credits: 3, target: null, cats: [], scale: 'us', cuts: {}, items: [] })); }, t('fromAdded')(names.length));
   }
 
   view.addEventListener('click', (e) => {
@@ -267,6 +396,16 @@
       tm.courses.forEach((c) => c.items.forEach((i) => { if (i.date && i.date >= a && i.date <= b && i.score == null) out.push({ course: c.name, title: i.title, kind: i.kind, date: i.date }); }));
       return out.sort((x, y) => (x.date < y.date ? -1 : 1));
     },
-    all: () => S.s.terms
+    all: () => S.s.terms,
+    itemOfTodo: (id) => !!findItem(id),
+    // from a ticked-off to-do: open its item to put in the score
+    editByTodo(id) {
+      const f = findItem(id);
+      if (!f) return;
+      if (S.s.cur !== f.tm.id) { S.s.cur = f.tm.id; S.save(); }
+      LO.go('term');
+      editItem(f.c.id, f.i.id);
+    }
   };
+  linkAll();
 })();

@@ -311,11 +311,13 @@
     const x = find('todo', id);
     if (!x) return;
     const finishing = !x.done;
+    // an assignment from the semester page: offer to put in the score
+    const fromTerm = finishing && LO.term && LO.term.itemOfTodo(id);
     LO.mutate(T, (s) => {
       const y = s.todos.find((z) => z.id === id);
       y.done = finishing;
       y.doneAt = finishing ? LO.todayKey() : '';
-    }, finishing ? `${t('completed')}: ${x.title}` : null);
+    }, finishing ? `${t('completed')}: ${x.title}` : null, fromTerm ? [{ label: LO.t('term.addScore'), run: () => LO.term.editByTodo(id) }] : null);
   }
   function toggleFocus(id) {
     const x = find('todo', id);
@@ -473,6 +475,10 @@
         }
         const today = LO.todayKey();
         const newId = uid();
+        const todoId = isNew ? newId : id;
+        // undo puts the schedule back too
+        const onUndo = kind === 'todo' && LO.planner && LO.planner.setTodoBlock && (block || blk)
+          ? () => LO.planner.setTodoBlock(todoId, blk ? Object.assign({}, blk, { title: item.title, cat: item.cat }) : null) : null;
         if (kind === 'todo' && LO.planner && LO.planner.setTodoBlock && (block || blk)) {
           // keep a length set by dragging on the schedule unless the estimate changed
           const dur = blk && item.est === fields.est ? blk.end - blk.start : (fields.est || 60);
@@ -488,7 +494,7 @@
             const target = (kind === 'habit' ? s.habits : kind === 'daily' ? s.dailies : s.todos).find((x) => x.id === id);
             if (target) Object.assign(target, fields);
           }
-        }, isNew ? tc('added') : tc('saved'));
+        }, isNew ? tc('added') : tc('saved'), null, onUndo);
         return true;
       },
       onDelete: isNew ? null : () => {
@@ -496,7 +502,7 @@
         LO.mutate(T, (s) => {
           const key = kind === 'habit' ? 'habits' : kind === 'daily' ? 'dailies' : 'todos';
           s[key] = s[key].filter((x) => x.id !== id);
-        }, tc('deleted'));
+        }, tc('deleted'), null, kind === 'todo' && blk ? () => LO.planner.setTodoBlock(id, Object.assign({}, blk, { title: item.title, cat: item.cat })) : null);
       }
     });
   }

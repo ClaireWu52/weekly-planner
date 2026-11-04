@@ -25,6 +25,7 @@
       streakOn: (n) => `连续活跃 ${n} 天`, streakBest: '，最长纪录', streakKeep: (n) => `已经连续 ${n} 天了，今天做完一件事就能接上`,
       streakTip: '完成待办或每日任务、记运动、专注、读完书、写成长记录，都算活跃。',
       timerMore: '展开', timerLess: '收起',
+      fold: '收起', unfold: '展开',
       evening: '晚上的收尾', quick: '快速记录', outfit: '天气和穿搭', dates: '快到的纪念日',
       quickPh: '随手记：周五交作业、喝了2杯水、跑步30分钟、花了25午饭…',
       qWater: (n) => `已记录：喝水 +${n} 杯`, qWorkout: (w, m) => `已记录：${w} ${m} 分钟`, qMood: '已记录今天的心情',
@@ -48,6 +49,7 @@
       streakOn: (n) => `${n}-day streak`, streakBest: ', your longest', streakKeep: (n) => `${n}-day streak. Do one thing today to keep it going`,
       streakTip: 'Finishing a to-do or daily, logging a workout, a focus session, finishing a book or a growth log entry all count.',
       timerMore: 'More', timerLess: 'Less',
+      fold: 'Fold', unfold: 'Open',
       evening: 'Evening wrap-up', quick: 'Quick add', outfit: 'Weather and outfit', dates: 'Special days coming up',
       quickPh: 'Jot anything: essay due fri, water 2, run 30 min, spent 8 on coffee…',
       qWater: (n) => `Logged ${n} cup${n > 1 ? 's' : ''} of water`, qWorkout: (w, m) => `Logged ${w}, ${m} min`, qMood: "Logged today's mood",
@@ -155,7 +157,7 @@
   }
   function refreshTimerCard() {
     const slot = $('#focusSlot');
-    if (slot) slot.innerHTML = timerCard();
+    if (slot) slot.innerHTML = withFold('timer', timerCard());
     paintTimer();
   }
 
@@ -368,28 +370,62 @@
 
   // Cards the reader can turn off under ⋯ → Customize pages. A card also goes
   // away when the page it comes from is hidden.
+  // col: where it sits on a wide screen (top: full width above the columns).
+  // Under ⋯ → Customize pages each card can be hidden, folded to its title, and
+  // moved up or down; on a phone that order is the order down the page, and on a
+  // wide screen it is the order within each column.
   const CARDS = [
-    { id: 'quick', label: 'quick', html: quickCard },
-    { id: 'evening', label: 'evening', html: () => (LO.evening ? LO.evening.cardHTML() : '') },
-    { id: 'schedule', label: 'schedule', page: 'schedule', html: scheduleCard },
-    { id: 'timer', label: 'timer', html: timerSection },
-    { id: 'dates', label: 'dates', page: 'dates', html: () => (LO.dates ? LO.dates.todayHTML() : '') },
-    { id: 'focus', label: 'focusTitle', html: focusCard },
-    { id: 'dailies', label: 'dailies', html: dailiesCard },
-    { id: 'upcoming', label: 'upcoming', page: 'tasks', html: upcomingCard },
-    { id: 'health', label: 'health', page: 'rest', html: healthCard },
-    { id: 'outfit', label: 'outfit', page: 'wardrobe', html: () => (LO.wardrobe && LO.wardrobe.todayHTML ? LO.wardrobe.todayHTML() : '') },
-    { id: 'habits', label: 'habits', page: 'tasks', html: habitsCard },
-    { id: 'month', label: 'month', page: 'plan', html: monthCard },
-    { id: 'news', label: 'news', page: 'news', html: newsCard },
-    { id: 'wishes', label: 'wishes', page: 'wishes', html: wishesCard }
+    { id: 'quick', label: 'quick', col: 'top', html: quickCard },
+    { id: 'evening', label: 'evening', col: 'top', html: () => (LO.evening ? LO.evening.cardHTML() : '') },
+    { id: 'schedule', label: 'schedule', col: 'a', page: 'schedule', html: scheduleCard },
+    { id: 'timer', label: 'timer', col: 'a', html: timerSection },
+    { id: 'dates', label: 'dates', col: 'b', page: 'dates', html: () => (LO.dates ? LO.dates.todayHTML() : '') },
+    { id: 'focus', label: 'focusTitle', col: 'b', html: focusCard },
+    { id: 'dailies', label: 'dailies', col: 'b', html: dailiesCard },
+    { id: 'upcoming', label: 'upcoming', col: 'b', page: 'tasks', html: upcomingCard },
+    { id: 'health', label: 'health', col: 'c', page: 'rest', html: healthCard },
+    { id: 'outfit', label: 'outfit', col: 'c', page: 'wardrobe', html: () => (LO.wardrobe && LO.wardrobe.todayHTML ? LO.wardrobe.todayHTML() : '') },
+    { id: 'habits', label: 'habits', col: 'c', page: 'tasks', html: habitsCard },
+    { id: 'month', label: 'month', col: 'c', page: 'plan', html: monthCard },
+    { id: 'news', label: 'news', col: 'c', page: 'news', html: newsCard },
+    { id: 'wishes', label: 'wishes', col: 'c', page: 'wishes', html: wishesCard }
   ];
-  LO.todayCards = () => CARDS.map((c) => ({ id: c.id, label: t(c.label) }));
+  // the quick add box has no title to fold to
+  const FOLDABLE = (id) => id !== 'quick';
+  const DEFAULT_FOLDED = ['news', 'wishes'];
+  const folded = () => { const s = LO.settings(); return Array.isArray(s.todayFolded) ? s.todayFolded : DEFAULT_FOLDED; };
+  // the reader's order, with cards it doesn't know yet in their usual place at the end
+  function cardOrder() {
+    const s = LO.settings();
+    const saved = Array.isArray(s.todayOrder) ? s.todayOrder.filter((id) => CARDS.some((c) => c.id === id)) : [];
+    return saved.concat(CARDS.map((c) => c.id).filter((id) => !saved.includes(id)));
+  }
+  LO.todayCards = () => cardOrder().map((id) => {
+    const c = CARDS.find((x) => x.id === id);
+    return { id, label: t(c.label), foldable: FOLDABLE(id), folded: folded().includes(id) };
+  });
+  const foldBtn = (id) => `<button type="button" class="fold-btn" data-cfold="${id}" aria-expanded="true" aria-label="${esc(t('fold'))}" title="${esc(t('fold'))}">⌃</button>`;
+  // adds the fold button to a card's title row (the first one in its HTML)
+  const withFold = (id, html) => (FOLDABLE(id) && html.includes('</header>') ? html.replace('</header>', `${foldBtn(id)}</header>`) : html);
   function card(id) {
     const c = CARDS.find((x) => x.id === id);
     const s = LO.settings();
     const off = (Array.isArray(s.todayHidden) && s.todayHidden.includes(id)) || (c.page && Array.isArray(s.hidden) && s.hidden.includes(c.page));
-    return off ? '' : c.html();
+    if (off) return '';
+    const html = c.html();
+    if (!html) return '';
+    const at = `style="order:${cardOrder().indexOf(id) + 1}"`;
+    if (FOLDABLE(id) && folded().includes(id) && html.includes('</header>')) {
+      return `<section class="card is-folded" ${at}><button type="button" class="fold-head" data-cfold="${id}" aria-expanded="false"><b>${esc(t(c.label))}</b><span>${esc(t('unfold'))}</span></button></section>`;
+    }
+    return withFold(id, html).replace(/^(\s*<section)/, `$1 ${at}`);
+  }
+  function toggleFold(id) {
+    const s = LO.settings();
+    const list = folded().slice();
+    s.todayFolded = list.includes(id) ? list.filter((x) => x !== id) : list.concat(id);
+    LO.saveSettings();
+    render();
   }
 
   function render() {
@@ -407,12 +443,13 @@
     if (LO.welcome) h += LO.welcome.html();
     if (LO.review) h += LO.review.nudgeHTML();
     h += LO.backup.nudgeHTML();
-    h += card('quick');
-    h += card('evening');
+    const ids = cardOrder();
+    const inCol = (col) => ids.filter((id) => CARDS.find((c) => c.id === id).col === col).map(card).join('');
+    h += inCol('top');
     h += '<div class="today-grid">';
-    h += `<div class="tcol-a">${tripCard()}${card('schedule')}${card('timer')}</div>`;
-    h += `<div class="tcol-b">${card('dates')}${card('focus')}${card('dailies')}${card('upcoming')}</div>`;
-    h += `<div class="tcol-c">${card('health')}${card('outfit')}${card('habits')}${card('month')}${card('news')}${card('wishes')}</div>`;
+    h += `<div class="tcol-a">${tripCard()}${inCol('a')}</div>`;
+    h += `<div class="tcol-b">${inCol('b')}</div>`;
+    h += `<div class="tcol-c">${inCol('c')}</div>`;
     h += '</div>';
     if (quiet.length) {
       const sep = LO.lang() === 'zh' ? '、' : ', ';
@@ -426,6 +463,8 @@
   LO.tasks.attach(view);
   if (LO.plan) LO.plan.attachMonths(view);
   view.addEventListener('click', (e) => {
+    const fo = e.target.closest('[data-cfold]');
+    if (fo) { toggleFold(fo.dataset.cfold); return; }
     const ro = e.target.closest('[data-ropen]');
     if (ro) { LO.review.open(+ro.dataset.ropen); return; }
     const rs = e.target.closest('[data-rskip]');
