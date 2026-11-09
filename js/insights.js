@@ -15,7 +15,7 @@
       monthTitle: (y, m) => `${y} 年 ${m} 月`, yearTitle: (y) => `${y} 年`,
       todos: '完成的待办', dailies: '每日任务打卡', workouts: '运动', workoutsLine: (n, m) => `${n} 次，共 ${m} 分钟`, focus: '专注',
       focusLine: (m) => (m >= 60 ? `${Math.round(m / 6) / 10} 小时` : `${m} 分钟`), sleep: '平均睡眠', sleepLine: (h) => `${h} 小时`, mood: '平均心情',
-      active: '活跃的天数', activeLine: (n, of) => `${n} / ${of} 天`, books: '读完的书', records: '成长记录', trips: '去过的地方', spend: '日常花费',
+      active: '活跃的天数', activeLine: (n, of) => `${n} / ${of} 天`, books: '读完的书', records: '成长记录', spend: '日常花费',
       topType: (x) => `最常做：${x}`, none: '没有', nothing: '这段时间还没有记录。',
       patterns: '发现的规律', patternsHint: '根据最近 60 天的记录自动算出来的，记得越多越准。', noPatterns: '记录再多几天（睡眠、心情、运动、专注），这里会出现你自己的规律。',
       p: {
@@ -32,7 +32,7 @@
       monthTitle: (y, m) => new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' }), yearTitle: (y) => String(y),
       todos: 'To-dos done', dailies: 'Daily check-ins', workouts: 'Workouts', workoutsLine: (n, m) => `${n}, ${m} min in all`, focus: 'Focus',
       focusLine: (m) => (m >= 60 ? `${Math.round(m / 6) / 10} h` : `${m} min`), sleep: 'Average sleep', sleepLine: (h) => `${h} h`, mood: 'Average mood',
-      active: 'Active days', activeLine: (n, of) => `${n} of ${of}`, books: 'Books finished', records: 'Growth log', trips: 'Trips', spend: 'Everyday spending',
+      active: 'Active days', activeLine: (n, of) => `${n} of ${of}`, books: 'Books finished', records: 'Growth log', spend: 'Everyday spending',
       topType: (x) => `Most often: ${x}`, none: 'None', nothing: 'Nothing logged in this stretch yet.',
       patterns: 'Patterns', patternsHint: 'Worked out from the last 60 days. The more you log, the better they get.', noPatterns: 'Log a few more days of sleep, mood, workouts and focus and your own patterns will show up here.',
       p: {
@@ -109,8 +109,6 @@
     if (LO.tasks) LO.tasks.store.s.dailies.forEach((d) => { checks += LO.tasks.doneDates(d, a).filter((k) => k <= b).length; });
     const books = LO.learn ? LO.learn.store.s.books.filter((x) => x.status === 'done' && x.finished >= a && x.finished <= b).map((x) => x.title) : [];
     const recs = LO.records ? LO.records.store.s.records.filter((x) => x.date >= a && x.date <= b).map((x) => x.title) : [];
-    const tv = LO.store('travel');
-    const trips = tv ? tv.s.trips.filter((x) => x.start && x.start >= a && x.start <= b && x.start <= LO.todayKey()).map((x) => x.dest) : [];
     const spend = LO.money ? LO.money.totalBetween(a, b) : 0;
     const moods = LO.t('health.moods');
     const card = (h, big, sub) => `<section class="card rv-card"><h3 class="rv-h">${esc(h)}</h3><p class="rv-big">${esc(big)}</p>${sub ? `<p class="hint">${esc(sub)}</p>` : ''}</section>`;
@@ -128,7 +126,6 @@
       + (spend ? card(t('spend'), LO.money.fmt(spend)) : '')
       + card(t('books'), String(books.length), list(books))
       + card(t('records'), String(recs.length), list(recs.slice(0, 8)))
-      + (trips.length ? card(t('trips'), list(trips)) : '')
       + '</div>';
     return h;
   }

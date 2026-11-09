@@ -1,7 +1,7 @@
 /*
  * Search everything (⌘K / Ctrl+K, or the magnifier in the header): to-dos,
  * dailies, habits, the schedule, the semester, goals, wishes, books, courses,
- * links, the growth log, trips and their places, clothes and food.
+ * links, the growth log, clothes and food.
  * Picking a result opens it, or the page it lives on.
  */
 (() => {
@@ -12,11 +12,11 @@
   LO.strings('search', {
     zh: {
       title: '搜索', ph: '搜索待办、课程、书、旅行、衣服…', empty: '没有找到', hint: '↑↓ 选择，回车打开，Esc 关闭',
-      kinds: { todo: '待办', daily: '每日任务', habit: '习惯', event: '课表', course: '学期课程', item: '作业/考试', goal: '年度目标', wish: '心愿', book: '书', lcourse: '学习课程', link: '收藏', record: '成长记录', trip: '旅行', place: '旅行', cloth: '衣橱', food: '吃什么', birthday: '生日纪念日' }
+      kinds: { todo: '待办', daily: '每日任务', habit: '习惯', event: '课表', course: '学期课程', item: '作业/考试', goal: '年度目标', wish: '心愿', book: '书', lcourse: '学习课程', link: '收藏', record: '成长记录', cloth: '衣橱', food: '吃什么', birthday: '生日纪念日' }
     },
     en: {
-      title: 'Search', ph: 'Search to-dos, courses, books, trips, clothes…', empty: 'Nothing found', hint: '↑↓ to choose, Enter to open, Esc to close',
-      kinds: { todo: 'To-do', daily: 'Daily', habit: 'Habit', event: 'Schedule', course: 'Course', item: 'Assignment', goal: 'Goal', wish: 'Wish', book: 'Book', lcourse: 'Learning', link: 'Saved link', record: 'Growth log', trip: 'Trip', place: 'Trip', cloth: 'Wardrobe', food: 'Food', birthday: 'Birthday' }
+      title: 'Search', ph: 'Search to-dos, courses, books, clothes…', empty: 'Nothing found', hint: '↑↓ to choose, Enter to open, Esc to close',
+      kinds: { todo: 'To-do', daily: 'Daily', habit: 'Habit', event: 'Schedule', course: 'Course', item: 'Assignment', goal: 'Goal', wish: 'Wish', book: 'Book', lcourse: 'Learning', link: 'Saved link', record: 'Growth log', cloth: 'Wardrobe', food: 'Food', birthday: 'Birthday' }
     }
   });
   const t = LO.ns('search');
@@ -59,13 +59,6 @@
     }
     const rc = st('records');
     if (rc) rc.records.forEach((r) => add('record', r.title, [r.date && LO.shortDate(r.date), r.note].filter(Boolean).join(' · '), go('records')));
-    const tv = st('travel');
-    if (tv) tv.trips.forEach((tr) => {
-      const open = () => LO.travel.show(tr.id);
-      add('trip', tr.dest, tr.start ? LO.shortDate(tr.start) : '', open);
-      Object.values(tr.sections || {}).forEach((list) => list.forEach((i) => add('place', i.name, `${tr.dest}${i.note ? ' · ' + i.note : ''}`, open)));
-      (tr.plan || []).forEach((i) => add('place', i.name, `${tr.dest} · ${LO.shortDate(i.day)}`, open));
-    });
     const wd = st('wardrobe');
     if (wd) wd.items.forEach((x) => add('cloth', x.name, [x.color, (x.tags || []).join(' '), x.note].filter(Boolean).join(' · '), go('wardrobe')));
     const fd = st('food');

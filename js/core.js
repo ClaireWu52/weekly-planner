@@ -122,7 +122,7 @@
     zh: {
       brand: '我的计划本',
       nav: { today: '今天', tasks: '任务', schedule: '课表', health: '健康', growth: '成长', life: '生活' },
-      sub: { today: '今日概览', news: '今日新闻', health: '运动', rest: '作息', calm: '放松', plan: '年度目标', term: '学期', wishes: '心愿清单', learn: '学习清单', records: '成长记录', review: '每周回顾', food: '吃什么', money: '记账', dates: '纪念日', wardrobe: '电子衣橱', travel: '旅游攻略' },
+      sub: { today: '今日概览', news: '今日新闻', health: '运动', rest: '作息', calm: '放松', plan: '年度目标', term: '学期', wishes: '心愿清单', learn: '学习清单', records: '成长记录', review: '每周回顾', food: '吃什么', money: '记账', dates: '纪念日', wardrobe: '电子衣橱' },
       customize: '自定义页面', custHint: '取消勾选的页面会从导航里隐藏，数据不会删除，随时可以再打开。今日概览不能隐藏。', custToday: '今日概览里的卡片', custTodayHint: '用 ↑ ↓ 调整顺序；勾上「收起」的卡片只显示一行标题，点一下展开。', custShow: '显示', custFold: '收起', custUp: '上移', custDown: '下移', custSaved: '已更新',
       sync: '同步设置', calendar: '导出到日历', calendarImport: '从日历导入课表', install: '装到手机桌面', installTitle: '装到手机桌面', ok: '知道了',
       installHow: ['iPhone：用 Safari 打开网站，点底部的“分享”按钮，选“添加到主屏幕”。', 'Android：用 Chrome 打开网站，点右上角的 ⋮，选“安装应用”或“添加到主屏幕”。', '电脑：用 Chrome 或 Edge 打开网站，点地址栏右侧的安装图标。', '装好之后，从桌面图标打开就像一个 App，没网时也能看已有的内容。'],
@@ -131,12 +131,12 @@
       backupLater: '稍后', backupSync: '开启同步', backupExport: '导出备份', resetSchedule: '清空课表',
       theme: '外观', themeNames: { auto: '跟随系统', light: '浅色', dark: '深色' }, langSwitch: 'English', shortcuts: '快捷键',
       shortcutsText: '数字键切换页面　⌘/Ctrl+K 或 / 搜索　⌘/Ctrl+Z 撤销　课表页：N 新建　← → 切换周　T 本周　P 打印',
-      imported: '备份已导入', importFailed: '这个文件不是有效的备份'
+      imported: '备份已导入', importFailed: '这个文件不是有效的备份', travelApp: '旅游攻略（已搬到单独的网页）'
     },
     en: {
       brand: 'My Planner',
       nav: { today: 'Today', tasks: 'Tasks', schedule: 'Schedule', health: 'Health', growth: 'Growth', life: 'Life' },
-      sub: { today: 'Overview', news: 'News', health: 'Exercise', rest: 'Daily rhythm', calm: 'Unwind', plan: 'Yearly goals', term: 'Semester', wishes: 'Wishes', learn: 'Learning', records: 'Growth log', review: 'Weekly review', food: 'What to eat', money: 'Spending', dates: 'Special days', wardrobe: 'Wardrobe', travel: 'Travel' },
+      sub: { today: 'Overview', news: 'News', health: 'Exercise', rest: 'Daily rhythm', calm: 'Unwind', plan: 'Yearly goals', term: 'Semester', wishes: 'Wishes', learn: 'Learning', records: 'Growth log', review: 'Weekly review', food: 'What to eat', money: 'Spending', dates: 'Special days', wardrobe: 'Wardrobe' },
       customize: 'Customize pages', custHint: 'Unchecked pages are hidden from the navigation. Nothing is deleted, and you can turn them back on anytime. Overview cannot be hidden.', custToday: 'Cards on Overview', custTodayHint: 'Use ↑ ↓ to reorder. Folded cards show just their title until you tap them.', custShow: 'Show', custFold: 'Fold', custUp: 'Move up', custDown: 'Move down', custSaved: 'Updated',
       sync: 'Sync settings', calendar: 'Export to calendar', calendarImport: 'Import from a calendar', install: 'Install on phone', installTitle: 'Install on your phone', ok: 'Got it',
       installHow: ['iPhone: open the site in Safari, tap Share at the bottom, then "Add to Home Screen".', 'Android: open the site in Chrome, tap ⋮ at the top right, then "Install app" or "Add to Home screen".', 'Computer: open the site in Chrome or Edge and click the install icon on the right of the address bar.', 'Once installed, it opens from the icon like an app and still shows your data offline.'],
@@ -145,7 +145,7 @@
       backupLater: 'Later', backupSync: 'Turn on sync', backupExport: 'Export backup', resetSchedule: 'Clear schedule',
       theme: 'Appearance', themeNames: { auto: 'System', light: 'Light', dark: 'Dark' }, langSwitch: '中文', shortcuts: 'Keyboard shortcuts',
       shortcutsText: 'Number keys switch pages   ⌘/Ctrl+K or / search   ⌘/Ctrl+Z undo   Schedule: N new   ← → week   T this week   P print',
-      imported: 'Backup imported', importFailed: "This file isn't a valid backup"
+      imported: 'Backup imported', importFailed: "This file isn't a valid backup", travelApp: 'Travel (now its own page)'
     }
   });
   const tc = LO.ns('common');
@@ -269,8 +269,8 @@
   // Top-level pages in the nav. "growth" holds the long-term pages (goals, semester,
   // wishes, learning, growth log, weekly review); old #/goals links still land there.
   const NAV = ['today', 'tasks', 'schedule', 'health', 'growth', 'life'];
-  const GROUPS = { today: ['today', 'news'], health: ['health', 'rest', 'calm'], growth: ['plan', 'term', 'wishes', 'learn', 'records', 'review'], life: ['food', 'money', 'dates', 'wardrobe', 'travel'] };
-  const PARENT = { news: 'today', rest: 'health', calm: 'health', plan: 'growth', term: 'growth', wishes: 'growth', learn: 'growth', records: 'growth', review: 'growth', food: 'life', money: 'life', dates: 'life', wardrobe: 'life', travel: 'life' };
+  const GROUPS = { today: ['today', 'news'], health: ['health', 'rest', 'calm'], growth: ['plan', 'term', 'wishes', 'learn', 'records', 'review'], life: ['food', 'money', 'dates', 'wardrobe'] };
+  const PARENT = { news: 'today', rest: 'health', calm: 'health', plan: 'growth', term: 'growth', wishes: 'growth', learn: 'growth', records: 'growth', review: 'growth', food: 'life', money: 'life', dates: 'life', wardrobe: 'life' };
   const hiddenList = () => (Array.isArray(settings.hidden) ? settings.hidden : []);
   const visibleSubs = (top) => GROUPS[top].filter((x) => x === 'today' || !hiddenList().includes(x));
   const topVisible = (top) => (GROUPS[top] ? visibleSubs(top).length > 0 : !hiddenList().includes(top));

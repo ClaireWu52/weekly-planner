@@ -39,13 +39,6 @@ const SHELL = [
   'js/dates.js',
   'js/home-weather.js',
   'js/wardrobe.js',
-  'js/travel-calc.js',
-  'js/travel.js',
-  'js/travel-book.js',
-  'js/travel-money.js',
-  'js/travel-pack.js',
-  'js/travel-weather.js',
-  'js/travel-share.js',
   'js/insight-calc.js',
   'js/insights.js',
   'js/review.js',
@@ -69,10 +62,11 @@ self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
+// Only this app's old caches: other apps on the same site (github.io) keep theirs.
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('planner-') && k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });

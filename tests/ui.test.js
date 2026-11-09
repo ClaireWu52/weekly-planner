@@ -25,7 +25,7 @@
   uiTest('every page opens without errors, in both languages', async (app) => {
     // '#/health' alone reopens the last Health tab, so each tab is named
     const pages = ['#/today', '#/today/news', '#/tasks', '#/schedule', '#/health/health', '#/health/rest', '#/health/calm', '#/growth/plan', '#/growth/term',
-      '#/growth/wishes', '#/growth/learn', '#/growth/records', '#/growth/review', '#/life/food', '#/life/money', '#/life/dates', '#/life/wardrobe', '#/life/travel'];
+      '#/growth/wishes', '#/growth/learn', '#/growth/records', '#/growth/review', '#/life/food', '#/life/money', '#/life/dates', '#/life/wardrobe'];
     for (const lang of ['zh', 'en']) {
       await app.click(`[data-setlang="${lang}"]`);
       for (const p of pages) {
